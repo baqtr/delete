@@ -7,7 +7,7 @@ from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, Callb
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
-TOKEN = "7160859484:AAEJmCps-57MkaoGpqaSm-v1dNPV-8v76I0"
+TOKEN = "7160859484:AAExGVIcwKGXEVU_lZM8yKaxUQPCkBfEhEQ"
 GITHUB_TOKEN = "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"
 HEROKU_API_KEY = "HRKU-43525bf8-98dc-41db-be13-7ce5add1ee52"
 ADMIN_ID = "7013440973"

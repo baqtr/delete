@@ -7,9 +7,9 @@ from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, Callb
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
-TOKEN = "7160859484:AAExGVIcwKGXEVU_lZM8yKaxUQPCkBfEhEQ"
+TOKEN = "7105215342:AAG4XYWMw1twnP69cEgGxHLCQKlo2527FnY"
 GITHUB_TOKEN = "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"
-HEROKU_API_KEY = "HRKU-43525bf8-98dc-41db-be13-7ce5add1ee52"
+HEROKU_API_KEY = "HRKU-354b0fc4-1af5-4c26-91a5-9c09166d5eee"
 ADMIN_ID = "7013440973"
 
 def start(update: Update, context: CallbackContext) -> None:

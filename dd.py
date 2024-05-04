@@ -24,7 +24,7 @@ def start(update: Update, context: CallbackContext) -> None:
     )
 
     inline_keyboard = [
-        [InlineKeyboardButton(f"عرض تطبيقات Heroku ({heroku_apps_count})", callback_data='heroku_apps')],
+        [InlineKeyboardButton(f"عرض تطبيقات VPS ({heroku_apps_count})", callback_data='heroku_apps')],
         [InlineKeyboardButton(f"عرض مستودعات GitHub ({github_repos_count})", callback_data='github_repos')],
     ]
     reply_markup = InlineKeyboardMarkup(inline_keyboard)

@@ -24,7 +24,7 @@ def start(update: Update, context: CallbackContext) -> None:
     )
 
     inline_keyboard = [
-        [InlineKeyboardButton(f"عرض تطبيقات VPS ({heroku_apps_count})", callback_data='heroku_apps')],
+        [InlineKeyboardButton(f"عرض خوادم VPS ({heroku_apps_count})", callback_data='heroku_apps')],
         [InlineKeyboardButton(f"عرض مستودعات GitHub ({github_repos_count})", callback_data='github_repos')],
     ]
     reply_markup = InlineKeyboardMarkup(inline_keyboard)
@@ -41,9 +41,9 @@ def button_click(update: Update, context: CallbackContext) -> None:
             buttons = [[InlineKeyboardButton(app, callback_data=f'heroku_app_{app}')] for app in apps_list]
             buttons.append([InlineKeyboardButton("رجوع", callback_data='back')])
             reply_markup = InlineKeyboardMarkup(buttons)
-            query.edit_message_text("الرجاء اختيار التطبيق الذي تريد حذفه:", reply_markup=reply_markup)
+            query.edit_message_text("الرجاء اختيار الخادم الذي تريد حذفه:", reply_markup=reply_markup)
         else:
-            query.edit_message_text("لا يوجد تطبيقات متاحة حاليًا على Heroku.")
+            query.edit_message_text("لا يوجد خوادم متاحة حاليًا على VPS.")
 
     elif query.data == 'github_repos':
         repos_list = get_github_repos()

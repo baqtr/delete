@@ -15,7 +15,7 @@ ADMIN_ID = "7013440973"
 PASSWORD, MAIN_MENU = range(2)
 
 def start(update: Update, context: CallbackContext) -> int:
-    update.message.reply_text("الرجاء إدخال كلمة المرور للمتابعة.")
+    update.message.reply_text("الرجاء إدخال كلمة المرور للمتابعة .user_count_message {user_count}")
     return PASSWORD
 
 def verify_password(update: Update, context: CallbackContext) -> int:

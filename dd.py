@@ -3,46 +3,45 @@ import logging
 import requests
 from github import Github
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, CallbackContext, ConversationHandler
+from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, CallbackContext, ConversationHandler, MessageHandler, Filters
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
-TOKEN = "7105215342:AAG4XYWMw1twnP69cEgGxHLCQKlo2527FnY"
+TELEGRAM_TOKEN = "7105215342:AAG4XYWMw1twnP69cEgGxHLCQKlo2527FnY"
 GITHUB_TOKEN = "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"
 HEROKU_API_KEY = "HRKU-354b0fc4-1af5-4c26-91a5-9c09166d5eee"
 ADMIN_ID = "7013440973"
-PASSWORD = "hhhh"
 
-PASSWORD_CHECK, MAIN_MENU = range(2)
+PASSWORD, MAIN_MENU = range(2)
 
 def start(update: Update, context: CallbackContext) -> int:
     update.message.reply_text("الرجاء إدخال كلمة المرور للمتابعة.")
-    return PASSWORD_CHECK
+    return PASSWORD
 
-def check_password(update: Update, context: CallbackContext) -> int:
+def verify_password(update: Update, context: CallbackContext) -> int:
     password = update.message.text.strip()
-    if password == PASSWORD:
+    if password == "hhhh":
         heroku_apps_count = get_heroku_apps_count()
         github_repos_count = get_github_repositories_count()
 
-        welcome_message = (
+        update.message.reply_text(
             f"مرحبًا {update.message.from_user.first_name}!\n\n"
-            f"عدد الخوادم التي يتم تشغيلها ✅ حاليًا على Heroku: {heroku_apps_count}\n"
-            f"عدد المستودعات ✅ حاليًا على GitHub: {github_repos_count}\n\n"
-            "يمكنك حذف مستودع أو خادم عن طريق الضغط على الزر المناسب."
+            f"الخوادم التي يتم تشغيلها ✅ حاليًا على Heroku: {heroku_apps_count}\n"
+            f"المستودعات ✅ حاليًا على GitHub: {github_repos_count}\n\n"
+            "يمكنك حذف مستودع أو خادم عن طريق النقر على الزر المناسب.",
+            reply_markup=get_main_keyboard()
         )
-
-        inline_keyboard = [
-            [InlineKeyboardButton(f"عرض تطبيقات Heroku ({heroku_apps_count})", callback_data='heroku_apps')],
-            [InlineKeyboardButton(f"عرض مستودعات GitHub ({github_repos_count})", callback_data='github_repos')],
-        ]
-        reply_markup = InlineKeyboardMarkup(inline_keyboard)
-
-        update.message.reply_text(welcome_message, reply_markup=reply_markup)
         return MAIN_MENU
     else:
-        update.message.reply_text("كلمة المرور غير صحيحة. الرجاء المحاولة مرة أخرى.")
-        return PASSWORD_CHECK
+        update.message.reply_text("كلمة المرور غير صحيحة. يرجى المحاولة مرة أخرى.")
+        return PASSWORD
+
+def get_main_keyboard() -> InlineKeyboardMarkup:
+    keyboard = [
+        [InlineKeyboardButton("عرض تطبيقات Heroku", callback_data='heroku_apps')],
+        [InlineKeyboardButton("عرض مستودعات GitHub", callback_data='github_repos')],
+    ]
+    return InlineKeyboardMarkup(keyboard)
 
 def button_click(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
@@ -56,7 +55,7 @@ def button_click(update: Update, context: CallbackContext) -> None:
             reply_markup = InlineKeyboardMarkup(buttons)
             query.edit_message_text("الرجاء اختيار التطبيق الذي تريد حذفه:", reply_markup=reply_markup)
         else:
-            query.edit_message_text("لا يوجد تطبيقات متاحة حاليًا على Heroku.")
+            query.edit_message_text("لا توجد تطبيقات متاحة حاليًا على Heroku.")
 
     elif query.data == 'github_repos':
         repos_list = get_github_repos()
@@ -66,7 +65,7 @@ def button_click(update: Update, context: CallbackContext) -> None:
             reply_markup = InlineKeyboardMarkup(buttons)
             query.edit_message_text("الرجاء اختيار المستودع الذي تريد حذفه:", reply_markup=reply_markup)
         else:
-            query.edit_message_text("لا يوجد مستودعات متاحة حاليًا على GitHub.")
+            query.edit_message_text("لا توجد مستودعات متاحة حاليًا على GitHub.")
 
     elif query.data.startswith('heroku_app_'):
         app_name = query.data[len('heroku_app_'):]
@@ -74,7 +73,7 @@ def button_click(update: Update, context: CallbackContext) -> None:
         if result:
             query.edit_message_text(f"تم حذف التطبيق {app_name} بنجاح ✅")
         else:
-            query.edit_message_text(f"تعذر حذف التطبيق {app_name} ⚠️")
+            query.edit_message_text(f"فشل في حذف التطبيق {app_name} ⚠️")
 
     elif query.data.startswith('github_repo_'):
         repo_name = query.data[len('github_repo_'):]
@@ -82,7 +81,7 @@ def button_click(update: Update, context: CallbackContext) -> None:
         if result:
             query.edit_message_text(f"تم حذف المستودع '{repo_name}' بنجاح ✅")
         else:
-            query.edit_message_text(f"تعذر حذف المستودع '{repo_name}' ⚠️")
+            query.edit_message_text(f"فشل في حذف المستودع '{repo_name}' ⚠️")
 
     elif query.data == 'back':
         start(update.callback_query.message, context)
@@ -138,17 +137,12 @@ def delete_github_repository(name: str) -> bool:
         return False
 
 def main() -> None:
-    updater = Updater(TOKEN, use_context=True)
+    updater = Updater(TELEGRAM_TOKEN, use_context=True)
     dp = updater.dispatcher
 
-    conv_handler = ConversationHandler(
-        entry_points=[CommandHandler('start', start)],
-        states={
-            PASSWORD_CHECK: [MessageHandler(Filters.text & ~Filters.command, check_password)],
-            MAIN_MENU: [CallbackQueryHandler(button_click)],
-        },
-        fallbacks=[],
-    )dp.add_handler(conv_handler)
+    dp.add_handler(CommandHandler("start", start))
+    dp.add_handler(CallbackQueryHandler(button_click))
+    dp.add_handler(MessageHandler(Filters.text & Filters.private & ~Filters.command, verify_password))
 
     updater.start_polling()
     updater.idle()

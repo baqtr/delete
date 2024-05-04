@@ -20,7 +20,7 @@ def start(update: Update, context: CallbackContext) -> int:
 
 def verify_password(update: Update, context: CallbackContext) -> int:
     password = update.message.text.strip()
-    if password == "hhhh":
+    if password == "محمد تناحه":
         heroku_apps_count = get_heroku_apps_count()
         github_repos_count = get_github_repositories_count()
 

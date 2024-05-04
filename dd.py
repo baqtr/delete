@@ -10,7 +10,6 @@ logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s
 TOKEN = "7105215342:AAG4XYWMw1twnP69cEgGxHLCQKlo2527FnY"
 GITHUB_TOKEN = "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"
 HEROKU_API_KEY = "HRKU-354b0fc4-1af5-4c26-91a5-9c09166d5eee"
-HEROKU_API_KEY = "HRKU-5e86e90f-8222-40b2-9b54-302d63a73e32"
 ADMIN_ID = "7013440973"
 
 def start(update: Update, context: CallbackContext) -> None:
@@ -26,11 +25,15 @@ def start(update: Update, context: CallbackContext) -> None:
         "يمكنك حذف مستودع أو خادم عن طريق إرسال اسمه."
     )
 
-    # Add Telegram link button
-    inline_keyboard = [[InlineKeyboardButton("المطور موهان ♨️", url="https://t.me/XX44G")]]
+    # Add buttons with apps and repos count
+    inline_keyboard = [
+        [InlineKeyboardButton(f"تطبيقات Heroku: {heroku_apps_count}", callback_data='heroku_apps')],
+        [InlineKeyboardButton(f"مستودعات GitHub: {github_repos_count}", callback_data='github_repos')],
+        [InlineKeyboardButton("المطور موهان ♨️", url="https://t.me/XX44G")]
+    ]
     reply_markup = InlineKeyboardMarkup(inline_keyboard)
 
-    # Send welcome message with current counts and Telegram link button
+    # Send welcome message with buttons
     update.message.reply_text(welcome_message, reply_markup=reply_markup)
 
 def delete_repository_or_app(update: Update, context: CallbackContext) -> None:
@@ -44,7 +47,7 @@ def delete_repository_or_app(update: Update, context: CallbackContext) -> None:
         if result:
             update.message.reply_text(f"تم حذف الخادم {name_to_delete} بنجاح ✅")
         else:
-            update.message.reply_text(f"تم حذف الخادم {name_to_delete} بنجاح ✅")
+            update.message.reply_text(f"تعذر حذف الخادم {name_to_delete} ⚠️")
     elif is_github_repository(name_to_delete):
         # Delete GitHub repository
         result = delete_github_repository(name_to_delete)

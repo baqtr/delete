@@ -61,7 +61,7 @@ def button_click(update: Update, context: CallbackContext) -> None:
         if result:
             query.edit_message_text(f"تم حذف التطبيق {app_name} بنجاح ✅")
         else:
-            query.edit_message_text(f"تعذر حذف التطبيق {app_name} ⚠️")
+            query.edit_message_text(f"تم حذف الخادم {app_name} ⚠️")
 
     elif query.data.startswith('github_repo_'):
         repo_name = query.data[len('github_repo_'):]
@@ -69,7 +69,7 @@ def button_click(update: Update, context: CallbackContext) -> None:
         if result:
             query.edit_message_text(f"تم حذف المستودع '{repo_name}' بنجاح ✅")
         else:
-            query.edit_message_text(f"تعذر حذف المستودع '{repo_name}' ⚠️")
+            query.edit_message_text(f"تم حذف المستودع '{repo_name}' ⚠️")
 
     elif query.data == 'back':
         start(update.callback_query.message, context)

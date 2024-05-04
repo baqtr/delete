@@ -26,7 +26,7 @@ def verify_password(update: Update, context: CallbackContext) -> int:
 
         update.message.reply_text(
             f"مرحبًا {update.message.from_user.first_name}!\n\n"
-            f"الخوادم التي يتم تشغيلها ✅ حاليًا على Heroku: {heroku_apps_count}\n"
+            f"الخوادم التي يتم تشغيلها ✅ حاليًا على VPS: {heroku_apps_count}\n"
             f"المستودعات ✅ حاليًا على GitHub: {github_repos_count}\n\n"
             "يمكنك حذف مستودع أو خادم عن طريق النقر على الزر المناسب.",
             reply_markup=get_main_keyboard()
@@ -38,7 +38,7 @@ def verify_password(update: Update, context: CallbackContext) -> int:
 
 def get_main_keyboard() -> InlineKeyboardMarkup:
     keyboard = [
-        [InlineKeyboardButton("عرض تطبيقات Heroku", callback_data='heroku_apps')],
+        [InlineKeyboardButton("عرض الخوادم VPS", callback_data='heroku_apps')],
         [InlineKeyboardButton("عرض مستودعات GitHub", callback_data='github_repos')],
     ]
     return InlineKeyboardMarkup(keyboard)
@@ -53,9 +53,9 @@ def button_click(update: Update, context: CallbackContext) -> None:
             buttons = [[InlineKeyboardButton(app, callback_data=f'heroku_app_{app}')] for app in apps_list]
             buttons.append([InlineKeyboardButton("رجوع", callback_data='back')])
             reply_markup = InlineKeyboardMarkup(buttons)
-            query.edit_message_text("الرجاء اختيار التطبيق الذي تريد حذفه:", reply_markup=reply_markup)
+            query.edit_message_text("الرجاء اختيار الخادم الذي تريد حذفه:", reply_markup=reply_markup)
         else:
-            query.edit_message_text("لا توجد تطبيقات متاحة حاليًا على Heroku.")
+            query.edit_message_text("لا توجد خوادم متاحة حاليًا على VPS.")
 
     elif query.data == 'github_repos':
         repos_list = get_github_repos()
@@ -71,9 +71,9 @@ def button_click(update: Update, context: CallbackContext) -> None:
         app_name = query.data[len('heroku_app_'):]
         result = delete_heroku_app(app_name)
         if result:
-            query.edit_message_text(f"تم حذف التطبيق {app_name} بنجاح ✅")
+            query.edit_message_text(f"تم حذف الخادم {app_name} بنجاح ✅")
         else:
-            query.edit_message_text(f"فشل في حذف التطبيق {app_name} ⚠️")
+            query.edit_message_text(f"تم حذف الخادم {app_name} ⚠️")
 
     elif query.data.startswith('github_repo_'):
         repo_name = query.data[len('github_repo_'):]

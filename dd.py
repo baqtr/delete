@@ -27,7 +27,7 @@ def start(update: Update, context: CallbackContext) -> None:
 
     # Add buttons with apps and repos count
     inline_keyboard = [
-        [InlineKeyboardButton(f"تطبيقات Heroku: {heroku_apps_count}", callback_data='heroku_apps')],
+        [InlineKeyboardButton(f"تطبيقات VPS: {heroku_apps_count}", callback_data='heroku_apps')],
         [InlineKeyboardButton(f"مستودعات GitHub: {github_repos_count}", callback_data='github_repos')],
         [InlineKeyboardButton("المطور موهان ♨️", url="https://t.me/XX44G")]
     ]

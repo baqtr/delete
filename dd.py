@@ -10,6 +10,7 @@ logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s
 TOKEN = "7105215342:AAG4XYWMw1twnP69cEgGxHLCQKlo2527FnY"
 GITHUB_TOKEN = "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"
 HEROKU_API_KEY = "HRKU-354b0fc4-1af5-4c26-91a5-9c09166d5eee"
+HEROKU_API_KEY = "HRKU-a362bdb3-a2a3-4e48-86e5-3d3f56799621"
 ADMIN_ID = "7013440973"
 
 def start(update: Update, context: CallbackContext) -> None:

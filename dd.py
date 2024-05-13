@@ -9,7 +9,7 @@ logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s
 
 TELEGRAM_TOKEN = "7105215342:AAG4XYWMw1twnP69cEgGxHLCQKlo2527FnY"
 GITHUB_TOKEN = "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"
-HEROKU_API_KEY = "HRKU-354b0fc4-1af5-4c26-91a5-9c09166d5eee"
+HEROKU_API_KEY = "HRKU-47748b92-c786-45b0-8083-b7120cf1f6ba"
 ADMIN_ID = "7013440973"
 
 PASSWORD, MAIN_MENU = range(2)

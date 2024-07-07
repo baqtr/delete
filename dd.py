@@ -1,111 +1,122 @@
-import telebot
-from telebot import types
-import subprocess
+import websocket
+import ssl
 import os
-import re
+import json
+import gzip
+import requests
+from time import sleep
+import random
+import concurrent.futures
+import webbrowser
+webbrowser.open('https://t.me/bsx_h2')
 
-TOKEN = '7031770762:AAF-BrYHNEcX8VyGBzY1mastEG3SWod4_uI' #توكنك
-bot = telebot.TeleBot(TOKEN)
+created=0
+failed=0
 
-bot_script_name = None
-admin_id = '7013440973' #ايديك
 
-upload_buttons = {}
+Z = '\033[1;31m' #احمر
+X = '\033[1;33m' #اصفر
+F = '\033[2;32m' #اخضر
+C = "\033[1;97m" #ابيض
+B = '\033[2;36m'#سمائي
+Y = '\033[1;34m' #ازرق فاتح.
+C = "\033[1;97m" #ابيض
+y = '\033[1;35m'#وردي
+f = '\033[2;35m'#بنفسجي
+z = '\033[3;33m'#اصفر طوخ
+G = '\033[2;36m'
+E = '\033[1;31m'
+V = '\033[1;35m'
+Z = '\033[1;31m' #احمر
+X = '\033[1;33m' #اصفر
+Z1 = '\033[2;31m' #احمر ثاني
+F = '\033[2;32m' #اخضر
+A = '\033[2;34m'#ازرق
+#C = '\033[2;35m' #وردي
+B = '\033[2;36m'#سمائي
+Y = '\033[1;34m' #ازرق فاتح
+M = '\x1b[1;37m'#ابیض
+S = '\033[1;33m'
+U = '\x1b[1;37m'#ابیض
+BRed = '\x1b[1;31m'
+BGreen = '\x1b[1;32m'
+BYellow = '\x1b[1;33m'
+R = '\x1b[1;34m'
+BPurple = '\x1b[1;35m'
+BCyan = '\x1b[1;36m'
+BWhite = '\x1b[1;37m'
+Z = '\033[1;31m' #احمر
+X = '\033[1;33m' #اصفر
+F = '\033[2;32m' #اخضر
+O = '\x1b[38;5;208m' #برتقالي
+BL = '\x1b[38;5;21m' #ازاق طوخ
+YU = '\x1b[38;5;200m' #وردي طوخ
+G = '\033[1;32m'
+R = '\033[1;31m'
 
-@bot.message_handler(commands=['start'])
-def start(message):
-    markup = types.InlineKeyboardMarkup()
-    upload_button = types.InlineKeyboardButton("رفع ملف 📤", callback_data='upload')
-    status_button = types.InlineKeyboardButton("حالة البوت 🎗", callback_data='status')
-    markup.row(upload_button, status_button)
-    bot.send_message(message.chat.id, "مرحبا! بك في بوت رفع ملفات بايثون على استضافة \n\n※ يمكنك رفع حتى 4 ملفات \n※ يتم تشغيل الملفات المرفوعه على سيرفر بايثون \n※ لا ترفع ملفات مشبوهه حتى لا يتم حظرك من البوت \n※ لرفع ملف اضغط على زر *رفع ملف*📤", reply_markup=markup)
+print(Y+'مرحبًا بك في إنشاء حساب لـ Safeum - @MRC_iq ~ ماࢪڪو') 
+print(C+"∞"*60)
+id ='6914108099'
+print('')
+os.system('clear')
 
-@bot.message_handler(commands=['developer'])
-def developer(message):
-    markup = types.InlineKeyboardMarkup()
-    wevy = types.InlineKeyboardButton("مطور البوت 👨‍🔧", url='https://t.me/M02MM')
-    markup.add(wevy)
-    bot.send_message(message.chat.id, "للتواصل مع مطور البوت، اضغط على الزر أدناه:", reply_markup=markup)
+print(Y+'مرحبًا بك في إنشاء حساب لـ Safeum ') 
+print(C+"∞"*60)
+token ='6852500377:AAHEqj5pRKpbei8NHG-oshSlTIlzaqPtVaU'
+print(F+'h')
+os.system('clear')
 
-@bot.message_handler(content_types=['document'])
-def handle_file(message):
-    global bot_script_name
-    try:
-        file_id = message.document.file_id
-        if file_id not in upload_buttons:
-            upload_buttons[file_id] = types.InlineKeyboardButton(f"ملف {len(upload_buttons)+1}", callback_data=file_id)
-        file_info = bot.get_file(file_id)
-        downloaded_file = bot.download_file(file_info.file_path)
-        bot_script_name = message.document.file_name
-        with open(bot_script_name, 'wb') as new_file:
-            new_file.write(downloaded_file)
-        bot_token = get_bot_token(bot_script_name)
-        bot.reply_to(message, f"تم رفع ملف بوتك بنجاح ✅\n\nاسم الملف المرفوع: {bot_script_name}\nتوكن البوت المرفوع: {bot_token}\n\nيمكنك التحكم في الملف باستخدام الأزرار الموجودة.")
-        send_to_admin(bot_script_name)
-        install_and_run_uploaded_file()
-    except Exception as e:
-        bot.reply_to(message, f"حدث خطأ : {e}")
+import time 
+print("مرحبا في اداة صنع حسابات تطبيق safeum")
+print("سوف تبدا الاداة في انشاء الحسابات بعد 5 ثوان ")
+time.sleep(5)
 
-def send_to_admin(file_name):
-    try:
-        with open(file_name, 'rb') as file:
-            bot.send_document(admin_id, file)
-    except Exception as e:
-        print(f"Error sending file to admin: {e}")
 
-def install_and_run_uploaded_file():
-    try:
-        subprocess.Popen(['pip', 'install', '-r', 'requirements.txt'])
-        subprocess.Popen(['/usr/bin/python3', bot_script_name])
-    except Exception as e:
-        print(f"Error installing and running uploaded file: {e}")
+ch='qwertyuioplkjhgfdsazxcvbnm1234567890'
+def create():
+ global created
+ global failed
+ user=str(random.choice('qwertyuioplkjhgfdsazxcvbnm')[0])+str(''.join(random.choice(ch) for i in range(10)))
+ 
+ tlg = f'''
+   <code>{user}</code>
+   '''
+ 
+ #user='kdvdfejevfsheh'
+ 
+ headers = {
+     "app": "com.safeum.android",
+     "host": None,
+     "remoteIp": "134.209.93.148",
+     "remotePort": str(8080),
+     "sessionId": "b6cbb22d-06ca-41ff-8fda-c0ddeb148195",
+     "time": "2023-04-30 12:13:32",
+     "url": "wss://51.79.208.190/Auth"
+ }
+ 
+ 
+ data0={"action":"Register","subaction":"Desktop","locale":"en_GB","gmt":"+02","password":{"m1x":"503c73d12b354f86ff9706b2114704380876f59f1444133e62ca27b5ee8127cc","m1y":"6387ae32b7087257452ae27fc8a925ddd6ba31d955639838249c02b3de175dfc","m2":"219d1d9b049550f26a6c7b7914a44da1b5c931eff8692dbfe3127eeb1a922fcf","iv":"e38cb9e83aef6ceb60a7a71493317903","message":"0d99759f972c527722a18a74b3e0b3c6060fe1be3ad53581a7692ff67b7bb651a18cde40552972d6d0b1482e119abde6203f5ab4985940da19bb998bb73f523806ed67cc6c9dbd310fd59fedee420f32"},"magicword":{"m1x":"04eb364e4ef79f31f3e95df2a956e9c72ddc7b8ed4bf965f4cea42739dbe8a4a","m1y":"ef1608faa151cb7989b0ba7f57b39822d7b282511a77c4d7a33afe8165bdc1ab","m2":"4b4d1468bfaf01a82c574ea71c44052d3ecb7c2866a2ced102d0a1a55901c94b","iv":"b31d0165dde6b3d204263d6ea4b96789","message":"8c6ec7ce0b9108d882bb076be6e49fe2"},"magicwordhint":"0000","login":str(user),"devicename":"Xiaomi Redmi Note 8 Pro","softwareversion":"1.1.0.1380","nickname":"hvtctchnjvfxfx","os":"AND","deviceuid":"c72d110c1ae40d50","devicepushuid":"*dxT6B6Solm0:APA91bHqL8wxzlyKHckKxMDz66HmUqmxCPAVKBDrs8KcxCAjwdpxIPTCfRmeEw8Jks_q13vOSFsOVjCVhb-CkkKmTUsaiS7YOYHQS_pbH1g6P4N-jlnRzySQwGvqMP1gxRVksHiOXKKP","osversion":"and_11.0.0","id":"1734805704"}
+ 
+ ws=websocket.create_connection("wss://51.79.208.190/Auth", header=headers, sslopt={"cert_reqs": ssl.CERT_NONE})
+ ws.send(json.dumps(data0))
+ result=ws.recv()
+ decoded_data = gzip.decompress(result)
+ #print(G+str(decoded_data))
+ if '"comment":"Exists"' in str(decoded_data):
+  failed+=1
+ elif '"status":"Success"' in str(decoded_data):
+  created+=1
+  requests.post(f"https://api.telegram.org/bot{token}/sendmessage?chat_id={id}&text="+str(tlg)+"&parse_mode=html")
+ elif '"comment":"Retry"' in str(decoded_data):
+  failed+=1
+ else:
+  print(decoded_data)
 
-def get_bot_token(file_name):
-    try:
-        with open(file_name, 'r') as file:
-            content = file.read()
-            match = re.search(r'TOKEN\s*=\s*[\'"]([^\'"]*)[\'"]', content)
-            if match:
-                return match.group(1)
-            else:
-                return "تعذر العثور على التوكن"
-    except Exception as e:
-        print(f"Error getting bot token: {e}")
-        return "تعذر العثور على التوكن"
 
-@bot.callback_query_handler(func=lambda call: True)
-def callback_handler(call):
-    if call.data == 'delete':
-        try:
-            os.remove(bot_script_name)
-            bot.send_message(call.message.chat.id, "تم حذف ملف البوت بنجاح.")
-        except Exception as e:
-            bot.send_message(call.message.chat.id, f"حدث خطأ: {e}")
-    elif call.data == 'stop':
-        try:
-            stop_bot()
-            bot.send_message(call.message.chat.id, "تم إيقاف البوت بنجاح.")
-        except Exception as e:
-            bot.send_message(call.message.chat.id, f"حدث خطأ: {e}")
-    elif call.data == 'upload':
-        bot.send_message(call.message.chat.id, "ارسل الملف الذي تريد رفعه على الاستضافة.")
-    elif call.data in upload_buttons:
-        bot.send_message(call.message.chat.id, f"تم رفع ملف بوتك بنجاح ✅\n※ اسم الملف {upload_buttons[call.data].text}.")
+executor=concurrent.futures.ThreadPoolExecutor(max_workers=500)
 
-def stop_bot():
-    try:
-        subprocess.Popen(['pkill', '-f', bot_script_name])
-    except Exception as e:
-        print(f"Error stopping bot: {e}")
-
-def check_status(message):
-    if os.path.exists(bot_script_name):
-        markup = types.InlineKeyboardMarkup()
-        delete_button = types.InlineKeyboardButton("حذف الملف 🗑", callback_data='delete')
-        stop_button = types.InlineKeyboardButton("إيقاف تشغيل الملف 🔴", callback_data='stop')
-        markup.row(delete_button, stop_button)
-        bot.send_message(message.chat.id, "مرحباً بك في قائمة التحكم في ملفك التي رفعته على السيرفر \n\n※ تحكم من الازرار الموجوده بالاسفل", reply_markup=markup)
-    else:
-        bot.send_message(message.chat.id, "البوت غير مشغل.")
-
-bot.polling()
+while True:
+ executor.submit(create)
+ os.system('clear')
+ print('Created : '+str(created))
+ print('Failed : '+str(failed))

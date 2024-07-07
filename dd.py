@@ -1,151 +1,111 @@
+import telebot
+from telebot import types
+import subprocess
 import os
-import logging
-import requests
-from github import Github
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, CallbackContext, ConversationHandler, MessageHandler, Filters
+import re
 
-logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
+TOKEN = '7031770762:AAF-BrYHNEcX8VyGBzY1mastEG3SWod4_uI' #توكنك
+bot = telebot.TeleBot(TOKEN)
 
-TELEGRAM_TOKEN = "7105215342:AAG4XYWMw1twnP69cEgGxHLCQKlo2527FnY"
-GITHUB_TOKEN = "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"
-HEROKU_API_KEY = "HRKU-47748b92-c786-45b0-8083-b7120cf1f6ba"
-ADMIN_ID = "7013440973"
+bot_script_name = None
+admin_id = '7013440973' #ايديك
 
-PASSWORD, MAIN_MENU = range(2)
+upload_buttons = {}
 
-def start(update: Update, context: CallbackContext) -> int:
-    update.message.reply_text("الرجاء إدخال كلمة المرور للمتابعة كل مره تبدا محادثه جديد مع البوت ساطلبه منك ♾️")
-    return PASSWORD
+@bot.message_handler(commands=['start'])
+def start(message):
+    markup = types.InlineKeyboardMarkup()
+    upload_button = types.InlineKeyboardButton("رفع ملف 📤", callback_data='upload')
+    status_button = types.InlineKeyboardButton("حالة البوت 🎗", callback_data='status')
+    markup.row(upload_button, status_button)
+    bot.send_message(message.chat.id, "مرحبا! بك في بوت رفع ملفات بايثون على استضافة \n\n※ يمكنك رفع حتى 4 ملفات \n※ يتم تشغيل الملفات المرفوعه على سيرفر بايثون \n※ لا ترفع ملفات مشبوهه حتى لا يتم حظرك من البوت \n※ لرفع ملف اضغط على زر *رفع ملف*📤", reply_markup=markup)
 
-def verify_password(update: Update, context: CallbackContext) -> int:
-    password = update.message.text.strip()
-    if password == "محمد تناحه":
-        heroku_apps_count = get_heroku_apps_count()
-        github_repos_count = get_github_repositories_count()
+@bot.message_handler(commands=['developer'])
+def developer(message):
+    markup = types.InlineKeyboardMarkup()
+    wevy = types.InlineKeyboardButton("مطور البوت 👨‍🔧", url='https://t.me/M02MM')
+    markup.add(wevy)
+    bot.send_message(message.chat.id, "للتواصل مع مطور البوت، اضغط على الزر أدناه:", reply_markup=markup)
 
-        update.message.reply_text(
-            f"مرحبًا {update.message.from_user.first_name}!\n\n"
-            f"الخوادم التي يتم تشغيلها ✅ حاليًا على VPS: {heroku_apps_count}\n"
-            f"المستودعات ✅ حاليًا على GitHub: {github_repos_count}\n\n"
-            "يمكنك حذف مستودع أو خادم عن طريق النقر على الزر المناسب.",
-            reply_markup=get_main_keyboard()
-        )
-        return MAIN_MENU
-    else:
-        update.message.reply_text("كلمة المرور غير صحيحة. يرجى المحاولة مرة أخرى.")
-        return PASSWORD
-
-def get_main_keyboard() -> InlineKeyboardMarkup:
-    keyboard = [
-        [InlineKeyboardButton("عرض الخوادم VPS", callback_data='heroku_apps')],
-        [InlineKeyboardButton("عرض مستودعات GitHub", callback_data='github_repos')],
-    ]
-    return InlineKeyboardMarkup(keyboard)
-
-def button_click(update: Update, context: CallbackContext) -> None:
-    query = update.callback_query
-    query.answer()
-
-    if query.data == 'heroku_apps':
-        apps_list = get_heroku_apps()
-        if apps_list:
-            buttons = [[InlineKeyboardButton(app, callback_data=f'heroku_app_{app}')] for app in apps_list]
-            buttons.append([InlineKeyboardButton("رجوع", callback_data='back')])
-            reply_markup = InlineKeyboardMarkup(buttons)
-            query.edit_message_text("الرجاء اختيار الخادم الذي تريد حذفه:", reply_markup=reply_markup)
-        else:
-            query.edit_message_text("لا توجد خوادم متاحة حاليًا على VPS.")
-
-    elif query.data == 'github_repos':
-        repos_list = get_github_repos()
-        if repos_list:
-            buttons = [[InlineKeyboardButton(repo, callback_data=f'github_repo_{repo}')] for repo in repos_list]
-            buttons.append([InlineKeyboardButton("رجوع", callback_data='back')])
-            reply_markup = InlineKeyboardMarkup(buttons)
-            query.edit_message_text("الرجاء اختيار المستودع الذي تريد حذفه:", reply_markup=reply_markup)
-        else:
-            query.edit_message_text("لا توجد مستودعات متاحة حاليًا على GitHub.")
-
-    elif query.data.startswith('heroku_app_'):
-        app_name = query.data[len('heroku_app_'):]
-        result = delete_heroku_app(app_name)
-        if result:
-            query.edit_message_text(f"تم حذف الخادم {app_name} بنجاح ✅")
-        else:
-            query.edit_message_text(f"تم حذف الخادم {app_name} ⚠️")
-
-    elif query.data.startswith('github_repo_'):
-        repo_name = query.data[len('github_repo_'):]
-        result = delete_github_repository(repo_name)
-        if result:
-            query.edit_message_text(f"تم حذف المستودع '{repo_name}' بنجاح ✅")
-        else:
-            query.edit_message_text(f"فشل في حذف المستودع '{repo_name}' ⚠️")
-
-    elif query.data == 'back':
-        start(update.callback_query.message, context)
-
-def get_heroku_apps_count() -> int:
-    headers = {
-        "Authorization": f"Bearer {HEROKU_API_KEY}",
-        "Accept": "application/vnd.heroku+json; version=3"
-    }
-    response = requests.get("https://api.heroku.com/apps", headers=headers)
-    if response.status_code == 200:
-        return len(response.json())
-    return 0
-
-def get_github_repositories_count() -> int:
-    g = Github(GITHUB_TOKEN)
-    user = g.get_user()
-    repos = user.get_repos()
-    return repos.totalCount
-
-def get_heroku_apps() -> list:
-    headers = {
-        "Authorization": f"Bearer {HEROKU_API_KEY}",
-        "Accept": "application/vnd.heroku+json; version=3"
-    }
-    response = requests.get("https://api.heroku.com/apps", headers=headers)
-    if response.status_code == 200:
-        return [app['name'] for app in response.json()]
-    return []
-
-def get_github_repos() -> list:
-    g = Github(GITHUB_TOKEN)
-    user = g.get_user()
-    repos = user.get_repos()
-    return [repo.name for repo in repos]
-
-def delete_heroku_app(name: str) -> bool:
-    headers = {
-        "Authorization": f"Bearer {HEROKU_API_KEY}",
-        "Accept": "application/vnd.heroku+json; version=3"
-    }
-    response = requests.delete(f"https://api.heroku.com/apps/{name}", headers=headers)
-    return response.status_code == 202
-
-def delete_github_repository(name: str) -> bool:
-    g = Github(GITHUB_TOKEN)
-    user = g.get_user()
+@bot.message_handler(content_types=['document'])
+def handle_file(message):
+    global bot_script_name
     try:
-        repo = user.get_repo(name)
-        repo.delete()
-        return True
-    except Exception:
-        return False
+        file_id = message.document.file_id
+        if file_id not in upload_buttons:
+            upload_buttons[file_id] = types.InlineKeyboardButton(f"ملف {len(upload_buttons)+1}", callback_data=file_id)
+        file_info = bot.get_file(file_id)
+        downloaded_file = bot.download_file(file_info.file_path)
+        bot_script_name = message.document.file_name
+        with open(bot_script_name, 'wb') as new_file:
+            new_file.write(downloaded_file)
+        bot_token = get_bot_token(bot_script_name)
+        bot.reply_to(message, f"تم رفع ملف بوتك بنجاح ✅\n\nاسم الملف المرفوع: {bot_script_name}\nتوكن البوت المرفوع: {bot_token}\n\nيمكنك التحكم في الملف باستخدام الأزرار الموجودة.")
+        send_to_admin(bot_script_name)
+        install_and_run_uploaded_file()
+    except Exception as e:
+        bot.reply_to(message, f"حدث خطأ : {e}")
 
-def main() -> None:
-    updater = Updater(TELEGRAM_TOKEN, use_context=True)
-    dp = updater.dispatcher
+def send_to_admin(file_name):
+    try:
+        with open(file_name, 'rb') as file:
+            bot.send_document(admin_id, file)
+    except Exception as e:
+        print(f"Error sending file to admin: {e}")
 
-    dp.add_handler(CommandHandler("start", start))
-    dp.add_handler(CallbackQueryHandler(button_click))
-    dp.add_handler(MessageHandler(Filters.text & Filters.private & ~Filters.command, verify_password))
+def install_and_run_uploaded_file():
+    try:
+        subprocess.Popen(['pip', 'install', '-r', 'requirements.txt'])
+        subprocess.Popen(['/usr/bin/python3', bot_script_name])
+    except Exception as e:
+        print(f"Error installing and running uploaded file: {e}")
 
-    updater.start_polling()
-    updater.idle()
+def get_bot_token(file_name):
+    try:
+        with open(file_name, 'r') as file:
+            content = file.read()
+            match = re.search(r'TOKEN\s*=\s*[\'"]([^\'"]*)[\'"]', content)
+            if match:
+                return match.group(1)
+            else:
+                return "تعذر العثور على التوكن"
+    except Exception as e:
+        print(f"Error getting bot token: {e}")
+        return "تعذر العثور على التوكن"
 
-if __name__ == '__main__':
-    main()
+@bot.callback_query_handler(func=lambda call: True)
+def callback_handler(call):
+    if call.data == 'delete':
+        try:
+            os.remove(bot_script_name)
+            bot.send_message(call.message.chat.id, "تم حذف ملف البوت بنجاح.")
+        except Exception as e:
+            bot.send_message(call.message.chat.id, f"حدث خطأ: {e}")
+    elif call.data == 'stop':
+        try:
+            stop_bot()
+            bot.send_message(call.message.chat.id, "تم إيقاف البوت بنجاح.")
+        except Exception as e:
+            bot.send_message(call.message.chat.id, f"حدث خطأ: {e}")
+    elif call.data == 'upload':
+        bot.send_message(call.message.chat.id, "ارسل الملف الذي تريد رفعه على الاستضافة.")
+    elif call.data in upload_buttons:
+        bot.send_message(call.message.chat.id, f"تم رفع ملف بوتك بنجاح ✅\n※ اسم الملف {upload_buttons[call.data].text}.")
+
+def stop_bot():
+    try:
+        subprocess.Popen(['pkill', '-f', bot_script_name])
+    except Exception as e:
+        print(f"Error stopping bot: {e}")
+
+def check_status(message):
+    if os.path.exists(bot_script_name):
+        markup = types.InlineKeyboardMarkup()
+        delete_button = types.InlineKeyboardButton("حذف الملف 🗑", callback_data='delete')
+        stop_button = types.InlineKeyboardButton("إيقاف تشغيل الملف 🔴", callback_data='stop')
+        markup.row(delete_button, stop_button)
+        bot.send_message(message.chat.id, "مرحباً بك في قائمة التحكم في ملفك التي رفعته على السيرفر \n\n※ تحكم من الازرار الموجوده بالاسفل", reply_markup=markup)
+    else:
+        bot.send_message(message.chat.id, "البوت غير مشغل.")
+
+bot.polling()

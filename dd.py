@@ -62,14 +62,14 @@ os.system('clear')
 
 print(Y+'مرحبًا بك في إنشاء حساب لـ Safeum ') 
 print(C+"∞"*60)
-token ='6852500377:AAHEqj5pRKpbei8NHG-oshSlTIlzaqPtVaU'
+token ='6852500377:AAEm3DG5rFzZEQfVFkLzVvgJCZsHeknR6wA'
 print(F+'h')
 os.system('clear')
 
 import time 
 print("مرحبا في اداة صنع حسابات تطبيق safeum")
 print("سوف تبدا الاداة في انشاء الحسابات بعد 5 ثوان ")
-time.sleep(5)
+time.sleep(0)
 
 
 ch='qwertyuioplkjhgfdsazxcvbnm1234567890'

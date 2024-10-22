@@ -61,7 +61,6 @@ async def start(event):
     buttons = [
         [Button.inline("➕ إضافة حساب", data="add")],
         [Button.inline("🔢 عدد الحسابات", data="account_count")],
-        [Button.inline("ترتيب حساب 🌚", data="account_settings")]
         [Button.inline("📲 جلب جلسة", data="get_session")],
         [Button.inline("🧹 تنظيف الحسابات", data="clean_accounts")],
         [Button.inline("📦 نسخة احتياطية", data="zip_all")],
@@ -82,7 +81,6 @@ async def start_lis(event):
         buttons = [
             [Button.inline("➕ إضافة حساب", data="add")],
             [Button.inline("🔢 عدد الحسابات", data="account_count")],
-             [Button.inline("ترتيب حساب 🌚", data="account_settings")]
             [Button.inline("📲 جلب جلسة", data="get_session")],
             [Button.inline("🧹 تنظيف الحسابات", data="clean_accounts")],
             [Button.inline("📦 نسخة احتياطية", data="zip_all")],

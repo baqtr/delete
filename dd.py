@@ -120,9 +120,10 @@ async def start_lis(event):
                 db.set("accounts", accounts)
 
                 await x.send_message("- تم حفظ الحساب بنجاح ✅")
+                await asyncio.sleep(2)
                 await x.delete_messages([txt.id])
                 await x.delete_messages([event.message_id])
-                
+
                 accounts = db.get("accounts")
                 account_count = len(accounts)
 
@@ -153,6 +154,7 @@ async def start_lis(event):
                 db.set("accounts", accounts)
 
                 await x.send_message("- تم حفظ الحساب بنجاح ✅")
+                await asyncio.sleep(2)
                 await x.delete_messages([txt.id])
                 await x.delete_messages([event.message_id])
 

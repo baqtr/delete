@@ -117,7 +117,7 @@ def start_bot():
         os.system('clear')
         print(G + 'Created : ' + str(created))
         print(L + 'Failed : ' + str(failed))
-        time.sleep(0.1)  # Reduce load on the system by slowing down iterations
+        time.sleep(200)  # Reduce load on the system by slowing down iterations
 
 if __name__ == "__main__":
     bot.remove_webhook()

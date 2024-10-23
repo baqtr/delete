@@ -52,6 +52,13 @@ db = uu('database/elhakem.ss', 'bot')
 if not db.exists("accounts"):
     db.set("accounts", [])
 
+# وظيفة لإعادة بناء الأزرار
+def build_main_buttons(account_count):
+    return [
+        [Button.inline(f"➕ إضافة حساب ({account_count})", data="add")],
+        [Button.inline(f"🔑 جلب آخر كود", data="get_code")],
+    ]
+
 # رسالة الترحيب
 @client.on(events.NewMessage(pattern="/start", func=lambda x: x.is_private))
 async def start(event):
@@ -63,10 +70,7 @@ async def start(event):
     accounts = db.get("accounts")
     account_count = len(accounts)
 
-    buttons = [
-        [Button.inline(f"➕ إضافة حساب ({account_count})", data="add")],
-        [Button.inline(f"🔑 جلب آخر كود", data="get_code")],
-    ]
+    buttons = build_main_buttons(account_count)
     await event.reply(f"👋 مرحبًا بك في بوت إدارة الحسابات.\n\n🔢 عدد الحسابات المضافة: {account_count} ", buttons=buttons)
 
 # إدارة تفاعلات الأزرار
@@ -82,11 +86,7 @@ async def start_lis(event):
     if data == "back" or data == "cancel":
         accounts = db.get("accounts")
         account_count = len(accounts)
-
-        buttons = [
-            [Button.inline(f"➕ إضافة حساب ({account_count})", data="add")],
-            [Button.inline(f"🔑 جلب آخر كود", data="get_code")],
-        ]
+        buttons = build_main_buttons(account_count)
         await event.edit(f"👋 مرحبًا بك في بوت إدارة الحسابات.\n\n🔢 عدد الحسابات المضافة: {account_count}", buttons=buttons)
 
     elif data == "add":
@@ -127,10 +127,7 @@ async def add_account(event):
             accounts.append(data)
             db.set("accounts", accounts)
 
-            await conv.send_message(f"✅ تم حفظ الحساب بنجاح!\n🔢 عدد الحسابات: {len(accounts)}", buttons=[
-                [Button.inline(f"➕ إضافة حساب ({len(accounts)})", data="add")],
-                [Button.inline(f"🔑 جلب آخر كود", data="get_code")],
-            ])
+            await conv.send_message(f"✅ تم حفظ الحساب بنجاح!\n🔢 عدد الحسابات: {len(accounts)}", buttons=build_main_buttons(len(accounts)))
 
         except (ApiIdInvalidError, PhoneNumberInvalidError, PhoneCodeInvalidError, PhoneCodeExpiredError):
             await conv.send_message("🚫 حدث خطأ في إدخال البيانات. تأكد من الرقم والكود المدخل.", buttons=[[Button.inline("🔙 رجوع", data="back")]])

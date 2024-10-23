@@ -119,19 +119,10 @@ async def start_lis(event):
                 accounts.append(data)
                 db.set("accounts", accounts)
 
-                await x.send_message("- تم حفظ الحساب بنجاح ✅")
-                await asyncio.sleep(2)
-                await x.delete_messages([txt.id])
-                await x.delete_messages([event.message_id])
-
-                accounts = db.get("accounts")
-                account_count = len(accounts)
-
-                buttons = [
-                    [Button.inline(f"➕ إضافة حساب ({account_count})", data="add")],
+                await x.send_message(f"- تم حفظ الحساب بنجاح ✅\n👋 مرحبًا بك في بوت إدارة الحسابات.\n🔢 عدد الحسابات: {len(accounts)}", buttons=[
+                    [Button.inline(f"➕ إضافة حساب ({len(accounts)})", data="add")],
                     [Button.inline(f"🔑 جلب آخر كود", data="get_code")],
-                ]
-                await x.send_message(f"👋 مرحبًا بك في بوت إدارة الحسابات.\n🔢 عدد الحسابات: {account_count}", buttons=buttons)
+                ])
 
             except (PhoneCodeInvalidError):
                 await x.send_message("الكود المدخل غير صحيح.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
@@ -153,19 +144,10 @@ async def start_lis(event):
                 accounts.append(data)
                 db.set("accounts", accounts)
 
-                await x.send_message("- تم حفظ الحساب بنجاح ✅")
-                await asyncio.sleep(2)
-                await x.delete_messages([txt.id])
-                await x.delete_messages([event.message_id])
-
-                accounts = db.get("accounts")
-                account_count = len(accounts)
-
-                buttons = [
-                    [Button.inline(f"➕ إضافة حساب ({account_count})", data="add")],
+                await x.send_message(f"- تم حفظ الحساب بنجاح ✅\n👋 مرحبًا بك في بوت إدارة الحسابات.\n🔢 عدد الحسابات: {len(accounts)}", buttons=[
+                    [Button.inline(f"➕ إضافة حساب ({len(accounts)})", data="add")],
                     [Button.inline(f"🔑 جلب آخر كود", data="get_code")],
-                ]
-                await x.send_message(f"👋 مرحبًا بك في بوت إدارة الحسابات.\n🔢 عدد الحسابات: {account_count}", buttons=buttons)
+                ])
 
     if data == "get_code":
         accounts = db.get("accounts")

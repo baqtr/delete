@@ -37,6 +37,5 @@ schedule
 psutil
 PyGithub
 psycopg2-binary
-PyMuPDF
 pdf2image
 pikepdf

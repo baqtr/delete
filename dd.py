@@ -118,7 +118,20 @@ async def start_lis(event):
                 data = {"phone_number": phone_number, "two-step": "لا يوجد", "session": string_session}
                 accounts.append(data)
                 db.set("accounts", accounts)
-                await x.send_message("- تم حفظ الحساب بنجاح ✅", buttons=[[Button.inline("🔙 رجوع", data="back")]])
+
+                await x.send_message("- تم حفظ الحساب بنجاح ✅")
+                await x.delete_messages([txt.id])
+                await x.delete_messages([event.message_id])
+                
+                accounts = db.get("accounts")
+                account_count = len(accounts)
+
+                buttons = [
+                    [Button.inline(f"➕ إضافة حساب ({account_count})", data="add")],
+                    [Button.inline(f"🔑 جلب آخر كود", data="get_code")],
+                ]
+                await x.send_message(f"👋 مرحبًا بك في بوت إدارة الحسابات.\n🔢 عدد الحسابات: {account_count}", buttons=buttons)
+
             except (PhoneCodeInvalidError):
                 await x.send_message("الكود المدخل غير صحيح.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
                 return
@@ -138,7 +151,19 @@ async def start_lis(event):
                 data = {"phone_number": phone_number, "two-step": password, "session": string_session}
                 accounts.append(data)
                 db.set("accounts", accounts)
-                await x.send_message("- تم حفظ الحساب بنجاح ✅", buttons=[[Button.inline("🔙 رجوع", data="back")]])
+
+                await x.send_message("- تم حفظ الحساب بنجاح ✅")
+                await x.delete_messages([txt.id])
+                await x.delete_messages([event.message_id])
+
+                accounts = db.get("accounts")
+                account_count = len(accounts)
+
+                buttons = [
+                    [Button.inline(f"➕ إضافة حساب ({account_count})", data="add")],
+                    [Button.inline(f"🔑 جلب آخر كود", data="get_code")],
+                ]
+                await x.send_message(f"👋 مرحبًا بك في بوت إدارة الحسابات.\n🔢 عدد الحسابات: {account_count}", buttons=buttons)
 
     if data == "get_code":
         accounts = db.get("accounts")
@@ -168,9 +193,9 @@ async def start_lis(event):
         # Fetch the latest code sent by Telegram
         async for message in app.iter_messages(777000, limit=1):
             if message.text:
-                await event.edit(f"آخر كود وصل للحساب {phone_number}: {message.text}")
+                await event.edit(f"آخر كود وصل للحساب {phone_number}: {message.text}", buttons=[[Button.inline("🔙 رجوع", data="back")]])
             else:
-                await event.edit(f"لم يتم العثور على كود للحساب {phone_number}.")
+                await event.edit(f"لم يتم العثور على كود للحساب {phone_number}.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
 
         await app.disconnect()
 

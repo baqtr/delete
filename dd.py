@@ -51,9 +51,6 @@ db = uu('database/elhakem.ss', 'bot')
 if not db.exists("accounts"):
     db.set("accounts", [])
 
-# Channel ID for profile pictures
-CHANNEL_ID = -1001234567890  # Replace with your desired channel ID
-
 @client.on(events.NewMessage(pattern="/start", func=lambda x: x.is_private))
 async def start(event):
     user_id = event.chat_id
@@ -66,6 +63,7 @@ async def start(event):
 
     buttons = [
         [Button.inline(f"➕ إضافة حساب ({account_count})", data="add")],
+        [Button.inline(f"🔑 جلب آخر كود", data="get_code")],
     ]
     await event.reply(f"👋 مرحبًا بك في بوت إدارة الحسابات.\n🔢 عدد الحسابات: {account_count}", buttons=buttons)
 
@@ -84,6 +82,7 @@ async def start_lis(event):
 
         buttons = [
             [Button.inline(f"➕ إضافة حساب ({account_count})", data="add")],
+            [Button.inline(f"🔑 جلب آخر كود", data="get_code")],
         ]
         await event.edit(f"👋 مرحبًا بك في بوت إدارة الحسابات.\n🔢 عدد الحسابات: {account_count}", buttons=buttons)
 
@@ -141,31 +140,36 @@ async def start_lis(event):
                 db.set("accounts", accounts)
                 await x.send_message("- تم حفظ الحساب بنجاح ✅", buttons=[[Button.inline("🔙 رجوع", data="back")]])
 
-async def change_profile_picture(app):
-    while True:
-        # Fetch photos from the channel
-        try:
-            photos = await app.get_messages(CHANNEL_ID, limit=5)
-            for photo in photos:
-                if photo.photo:
-                    await app(functions.photos.UploadProfilePhotoRequest(
-                        await app.upload_file(photo.photo)
-                    ))
-                    await asyncio.sleep(10)  # Change profile picture every 10 seconds
-        except Exception as e:
-            print(f"Error changing profile picture: {e}")
-            await asyncio.sleep(10)
-
-async def manage_accounts():
-    while True:
+    if data == "get_code":
         accounts = db.get("accounts")
-        for account in accounts:
-            if account['session']:
-                app = TelegramClient(StringSession(account['session']), API_ID, API_HASH)
-                await app.connect()
-                await change_profile_picture(app)
-                await app.disconnect()
-        await asyncio.sleep(10)
+        if not accounts:
+            await event.reply("🚫 لا يوجد حسابات مضافة.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
+            return
 
-client.loop.create_task(manage_accounts())
-client.run_until_disconnected()
+        buttons = []
+        for account in accounts:
+            buttons.append([Button.inline(account['phone_number'], data=f"get_code_{account['phone_number']}")])
+
+        buttons.append([Button.inline("🔙 رجوع", data="back")])
+        await event.edit("اختر الحساب لجلب آخر كود:", buttons=buttons)
+
+    if data.startswith("get_code_"):
+        phone_number = data.split("_", 2)[-1]
+        accounts = db.get("accounts")
+        account = next((acc for acc in accounts if acc['phone_number'] == phone_number), None)
+
+        if not account:
+            await event.reply("🚫 الحساب غير موجود.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
+            return
+
+        app = TelegramClient(StringSession(account['session']), API_ID, API_HASH)
+        await app.connect()
+
+        # Fetch the latest code sent by Telegram
+        async for message in app.iter_messages(777000, limit=1):
+            if message.text:
+                await event.reply(f"آخر كود وصل للحساب {phone_number}: {message.text}")
+            else:
+                await event.reply(f"لم يتم العثور على كود للحساب {phone_number}.")
+
+        await app.disconnect()

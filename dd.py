@@ -66,7 +66,7 @@ async def start(event):
         [Button.inline("📦 نسخة احتياطية", data="zip_all")],
         [Button.url("💻 المطور", "https://t.me/xx44g")]
     ]
-    await event.reply("👋 مرحبًا بك في بوت إدارة الحسابات، اختر من الأزرار أدناه ما تود فعله.", buttons=buttons)
+    await event.reply("عدد حساباتك الحالي:  {count}", buttons=buttons)
 
 @client.on(events.callbackquery.CallbackQuery())
 async def start_lis(event):

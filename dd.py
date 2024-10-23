@@ -37,7 +37,8 @@ def build_main_buttons(account_count):
     return [
         [Button.inline(f"➕ إضافة حساب ({account_count})", data="add")],
         [Button.inline(f"🔑 جلب آخر كود", data="get_code")],
-        [Button.inline(f"🛠 ترتيب حساب", data="manage_accounts")],
+        [Button.inline("📦 نسخ احتياطي", data="backup")],
+        [Button.inline("📤 رفع نسخة احتياطية", data="restore")]
     ]
 
 # رسالة الترحيب
@@ -76,28 +77,15 @@ async def start_lis(event):
     elif data == "get_code":
         await get_code(event)
 
-    elif data == "manage_accounts":
-        await manage_accounts(event)
+    elif data == "backup":
+        await backup_data(event)
 
-    elif data.startswith("manage_"):
-        phone_number = data.split("_", 2)[-1]
-        await show_account_options(event, phone_number)
+    elif data == "restore":
+        await restore_data(event)
 
     elif data.startswith("get_code_"):
         phone_number = data.split("_", 2)[-1]
         await fetch_code(event, phone_number)
-
-    elif data.startswith("set_photo_"):
-        phone_number = data.split("_", 2)[-1]
-        await set_account_photo(event, phone_number)
-
-    elif data.startswith("set_bio_"):
-        phone_number = data.split("_", 2)[-1]
-        await set_account_bio(event, phone_number)
-
-    elif data.startswith("set_username_"):
-        phone_number = data.split("_", 2)[-1]
-        await set_account_username(event, phone_number)
 
 # وظيفة إضافة حساب جديد
 async def add_account(event):
@@ -149,30 +137,6 @@ async def get_code(event):
     buttons.append([Button.inline("🔙 رجوع", data="back")])
     await event.edit("اختر الحساب لجلب آخر كود:", buttons=buttons)
 
-# وظيفة ترتيب الحسابات
-async def manage_accounts(event):
-    accounts = db.get("accounts")
-    if not accounts:
-        await event.edit("🚫 لا توجد حسابات مضافة.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
-        return
-
-    buttons = []
-    for account in accounts:
-        buttons.append([Button.inline(f"⚙️ {account['phone_number']}", data=f"manage_{account['phone_number']}")])
-
-    buttons.append([Button.inline("🔙 رجوع", data="back")])
-    await event.edit("اختر الحساب لترتيبه:", buttons=buttons)
-
-# وظيفة عرض خيارات الحساب
-async def show_account_options(event, phone_number):
-    buttons = [
-        [Button.inline("🖼 وضع صورة", data=f"set_photo_{phone_number}")],
-        [Button.inline("📄 وضع نبذة", data=f"set_bio_{phone_number}")],
-        [Button.inline("✏️ وضع اسم مستخدم", data=f"set_username_{phone_number}")],
-        [Button.inline("🔙 رجوع", data="manage_accounts")]
-    ]
-    await event.edit(f"⚙️ إعدادات الحساب {phone_number}:", buttons=buttons)
-
 # وظيفة استخراج آخر كود لحساب معين
 async def fetch_code(event, phone_number):
     accounts = db.get("accounts")
@@ -188,6 +152,7 @@ async def fetch_code(event, phone_number):
     try:
         async for message in app.iter_messages(777000, limit=1):
             if message.text:
+                # استخراج فقط الكود من الرسالة
                 code = ''.join(filter(str.isdigit, message.text))
                 await event.edit(f"📩 آخر كود للحساب {phone_number}: (`{code}`)\n\n(يمكنك نسخه)", parse_mode="md", buttons=[[Button.inline("🔙 رجوع", data="back")]])
             else:
@@ -196,56 +161,46 @@ async def fetch_code(event, phone_number):
     finally:
         await app.disconnect()
 
-# وظيفة وضع صورة للحساب
-async def set_account_photo(event, phone_number):
-    app = TelegramClient(StringSession(account['session']), API_ID, API_HASH)
-    await app.connect()
+# وظيفة النسخ الاحتياطي
+async def backup_data(event):
+    backup_file = 'backup/backup_data.json'
+    
+    if not os.path.isdir('backup'):
+        os.mkdir('backup')
+    
+    data = {
+        "accounts": db.get("accounts")
+    }
 
+    with open(backup_file, 'w') as f:
+        json.dump(data, f)
+
+    await bot.send_file(event.chat_id, backup_file, caption="📦 النسخة الاحتياطية تم إنشاؤها بنجاح.")
+    shutil.rmtree('backup')
+
+# وظيفة استعادة النسخة الاحتياطية
+async def restore_data(event):
     async with bot.conversation(event.chat_id) as conv:
-        await conv.send_message("📷 من فضلك أرسل الصورة التي تريد وضعها:")
+        await conv.send_message("📤 من فضلك أرسل ملف النسخة الاحتياطية:")
         response = await conv.get_response()
-        if response.photo:
-            await app(functions.photos.UploadProfilePhotoRequest(file=await app.upload_file(response.photo)))
-            await conv.send_message("✅ تم تحديث صورة الحساب بنجاح!")
-        else:
-            await conv.send_message("🚫 يجب عليك إرسال صورة.", buttons=[[Button.inline("🔙 رجوع", data=f"manage_{phone_number}")]])
+        
+        if not response.file or not response.file.name.endswith('.json'):
+            await conv.send_message("🚫 الملف غير صحيح، يرجى إرسال ملف JSON.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
+            return
+        
+        backup_file = 'backup/restore_data.json'
+        
+        if not os.path.isdir('backup'):
+            os.mkdir('backup')
 
-    await app.disconnect()
+        await bot.download_media(response, backup_file)
 
-# وظيفة وضع نبذة للحساب
-async def set_account_bio(event, phone_number):
-    app = TelegramClient(StringSession(account['session']), API_ID,API_HASH)
-    await app.connect()
+        with open(backup_file, 'r') as f:
+            data = json.load(f)
 
-    async with bot.conversation(event.chat_id) as conv:
-        await conv.send_message("📝 من فضلك أرسل النبذة التي تريد وضعها:")
-        response = await conv.get_response()
-        bio = response.text
+        db.set("accounts", data.get("accounts", []))
 
-        try:
-            await app(functions.account.UpdateProfileRequest(about=bio))
-            await conv.send_message("✅ تم تحديث النبذة بنجاح!")
-        except Exception as e:
-            await conv.send_message(f"🚫 حدث خطأ أثناء تحديث النبذة: {str(e)}", buttons=[[Button.inline("🔙 رجوع", data=f"manage_{phone_number}")]])
-
-    await app.disconnect()
-
-# وظيفة وضع اسم مستخدم للحساب
-async def set_account_username(event, phone_number):
-    app = TelegramClient(StringSession(account['session']), API_ID, API_HASH)
-    await app.connect()
-
-    async with bot.conversation(event.chat_id) as conv:
-        await conv.send_message("✏️ من فضلك أرسل اسم المستخدم الذي تريد وضعه:")
-        response = await conv.get_response()
-        username = response.text
-
-        try:
-            await app(functions.account.UpdateUsernameRequest(username=username))
-            await conv.send_message("✅ تم تحديث اسم المستخدم بنجاح!")
-        except Exception as e:
-            await conv.send_message(f"🚫 حدث خطأ أثناء تحديث اسم المستخدم: {str(e)}", buttons=[[Button.inline("🔙 رجوع", data=f"manage_{phone_number}")]])
-
-    await app.disconnect()
+        await conv.send_message("✅ تم استعادة البيانات بنجاح.", buttons=build_main_buttons(len(data.get("accounts", []))))
+        shutil.rmtree('backup')
 
 client.run_until_disconnected()

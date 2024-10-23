@@ -37,8 +37,8 @@ except:
 if not os.path.isdir('database'):
     os.mkdir('database')
 
-API_ID = "28553207"
-API_HASH = "6f1f209f3a77a17407870238382aa8ab"
+API_ID = "27728127"
+API_HASH = "1d1b5983cf43b6309d12411e13481c9e"
 admin = 7013440973
 allowed_id = 7013440973  # Replace this with the allowed user's Telegram ID
 token = "7464446606:AAFb6FK5oAwLEiuDCftx2cA2jfSBPsyJjj8"

@@ -148,36 +148,39 @@ async def auto_reply(event):
     accounts = db.get("accounts")
     muted_users = db.get("muted_users")
 
-    # Command to show help
-    if event.text.lower() == "اوامر":
-        await event.reply("هلا بيك في قائمة الاوامر:\n- للحفظ الصوره الذاتيه قم برد عليه بكلمة دقيقه وسيتم حفظه الى رسائل المحفوضه تلقائيا.\n- للكتم شخص رد عليه بكلمة كتم، ولإلغاء الكتم رد عليه بكلمة الغاء.")
-    
-    # Muting logic
-    elif event.text.lower() == "كتم" and event.is_reply:
-        reply = await event.get_reply_message()
-        if reply.sender_id not in muted_users:
-            muted_users.append(reply.sender_id)
-            db.set("muted_users", muted_users)
-            await event.reply(f"تم كتم {reply.sender_id} وحذف رسائله تلقائياً.")
-    
-    elif event.text.lower() == "الغاء" and event.is_reply:
-        reply = await event.get_reply_message()
-        if reply.sender_id in muted_users:
-            muted_users.remove(reply.sender_id)
-            db.set("muted_users", muted_users)
-            await event.reply(f"تم إلغاء الكتم عن {reply.sender_id}.")
-    
-    # Check if sender is muted, if yes, delete the message
-    if event.sender_id in muted_users:
-        await event.delete()
-    
-    # Save self-destructing photos to saved messages
+    # Check if the message is coming from any managed account
     for account in accounts:
         if account['session']:
             app = TelegramClient(StringSession(account['session']), API_ID, API_HASH)
             await app.connect()
+
+            # Command to show help
+            if event.text.lower() == "اوامر":
+                await app.send_message(event.chat_id, "هلا بيك في قائمة الاوامر:\n- للحفظ الصوره الذاتيه قم برد عليه بكلمة دقيقه وسيتم حفظه الى رسائل المحفوضه تلقائيا.\n- للكتم شخص رد عليه بكلمة كتم، ولإلغاء الكتم رد عليه بكلمة الغاء.")
+            
+            # Muting logic
+            elif event.text.lower() == "كتم" and event.is_reply:
+                reply = await event.get_reply_message()
+                if reply.sender_id not in muted_users:
+                    muted_users.append(reply.sender_id)
+                    db.set("muted_users", muted_users)
+                    await app.send_message(event.chat_id, f"تم كتم {reply.sender_id} وحذف رسائله تلقائياً.")
+            
+            elif event.text.lower() == "الغاء" and event.is_reply:
+                reply = await event.get_reply_message()
+                if reply.sender_id in muted_users:
+                    muted_users.remove(reply.sender_id)
+                    db.set("muted_users", muted_users)
+                    await app.send_message(event.chat_id, f"تم إلغاء الكتم عن {reply.sender_id}.")
+            
+            # Check if sender is muted, if yes, delete the message
+            if event.sender_id in muted_users:
+                await app.delete_messages(event.chat_id, [event.id])
+            
+            # Save self-destructing photos to saved messages
             if event.photo and event.is_private:
                 await app.send_message("me", event.message)  # Save the photo in saved messages
+            
             await app.disconnect()
 
 client.run_until_disconnected()

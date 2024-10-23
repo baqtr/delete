@@ -166,7 +166,7 @@ async def fetch_code(event, phone_number):
             if message.text:
                 # استخراج فقط الكود من الرسالة
                 code = ''.join(filter(str.isdigit, message.text))
-                await event.edit(f"📩 آخر كود للحساب {phone_number}: `{code}`\n(يمكنك نسخه)", parse_mode="md", buttons=[[Button.inline("🔙 رجوع", data="back")]])
+                await event.edit(f"📩 آخر كود للحساب {phone_number}:(`{code}`) \n(يمكنك نسخه)", parse_mode="md", buttons=[[Button.inline("🔙 رجوع", data="back")]])
             else:
                 await event.edit(f"⚠️ لم يتم العثور على كود للحساب {phone_number}.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
 

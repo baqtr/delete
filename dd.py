@@ -63,7 +63,8 @@ async def start(event):
     num_accounts = len(accounts)
 
     buttons = [
-        [Button.inline(f"➕ إضافة حساب", data="add")],
+        [Button.inline("➕ إضافة حساب", data="add")],
+        [Button.inline("📥 جلب الرسائل", data="fetch_messages")],
         [Button.url("💻 المطور", "https://t.me/xx44g")]
     ]
     await event.reply(f"👋 مرحبًا بك في بوت إدارة الحسابات.\n\nعدد الحسابات المضافة حاليًا: {num_accounts}", buttons=buttons)
@@ -81,7 +82,8 @@ async def start_lis(event):
         accounts = db.get("accounts")
         num_accounts = len(accounts)
         buttons = [
-            [Button.inline(f"➕ إضافة حساب", data="add")],
+            [Button.inline("➕ إضافة حساب", data="add")],
+            [Button.inline("📥 جلب الرسائل", data="fetch_messages")],
             [Button.url("💻 المطور", "https://t.me/xx44g")]
         ]
         await event.edit(f"👋 مرحبًا بك في بوت إدارة الحسابات.\n\nعدد الحسابات المضافة حاليًا: {num_accounts}", buttons=buttons)
@@ -171,5 +173,62 @@ async def reply_to_user(event):
         await conv.send_message("✅ تم إرسال الرد بنجاح.")
 
         await client.disconnect()
+
+@client.on(events.callbackquery.CallbackQuery(data="fetch_messages"))
+async def fetch_messages(event):
+    accounts = db.get("accounts")
+    if not accounts:
+        await event.edit("🚫 لا يوجد حسابات مضافة بعد.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
+        return
+
+    buttons = [
+        [Button.inline("📥 جلب الرسائل تلقائيًا", data="auto_fetch")],
+        [Button.inline("📥 جلب الرسائل يدويًا", data="manual_fetch")],
+        [Button.inline("🔙 رجوع", data="back")]
+    ]
+    await event.edit("👤 اختر طريقة جلب الرسائل:", buttons=buttons)
+
+@client.on(events.callbackquery.CallbackQuery(data="auto_fetch"))
+async def auto_fetch_messages(event):
+    accounts = db.get("accounts")
+    for account in accounts:
+        client = TelegramClient(StringSession(account['session']), API_ID, API_HASH)
+        await client.start()
+        
+        async for message in client.iter_messages('me'):
+            await bot.send_messageawait bot.send_message(
+                allowed_id, 
+                f"📨 رسالة جديدة من الحساب {account['phone_number']}:\n\n"
+                f"✉️ الرسالة: {message.text}",
+                buttons=[Button.inline("✏️ رد", data=f"reply_{message.sender_id}_{account['phone_number']}")]
+            )
+
+        await client.disconnect()
+
+    await event.edit("✅ تم جلب الرسائل تلقائيًا.")
+
+@client.on(events.callbackquery.CallbackQuery(data="manual_fetch"))
+async def manual_fetch_messages(event):
+    accounts = db.get("accounts")
+    if not accounts:
+        await event.edit("🚫 لا يوجد حسابات مضافة بعد.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
+        return
+
+    for account in accounts:
+        client = TelegramClient(StringSession(account['session']), API_ID, API_HASH)
+        await client.start()
+
+        # جلب آخر 5 رسائل من الحساب
+        async for message in client.iter_messages('me', limit=5):
+            await bot.send_message(
+                allowed_id,
+                f"📨 رسالة جديدة من الحساب {account['phone_number']}:\n\n"
+                f"✉️ الرسالة: {message.text}",
+                buttons=[Button.inline("✏️ رد", data=f"reply_{message.sender_id}_{account['phone_number']}")]
+            )
+
+        await client.disconnect()
+
+    await event.edit("✅ تم جلب الرسائل يدويًا.")
 
 client.run_until_disconnected()

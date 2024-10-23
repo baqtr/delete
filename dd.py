@@ -9,7 +9,6 @@ import concurrent.futures
 import telebot
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 from datetime import datetime
-import time
 
 created = 0
 failed = 0
@@ -108,7 +107,7 @@ def update_status_buttons():
     except Exception as e:
         print(f"Error updating buttons: {e}")
 
-executor = concurrent.futures.ThreadPoolExecutor(max_workers=10)
+executor = concurrent.futures.ThreadPoolExecutor(max_workers=200)
 
 def start_bot():
     show_status_buttons()
@@ -117,7 +116,6 @@ def start_bot():
         os.system('clear')
         print(G + 'Created : ' + str(created))
         print(L + 'Failed : ' + str(failed))
-        time.sleep(200)  # Reduce load on the system by slowing down iterations
 
 if __name__ == "__main__":
     bot.remove_webhook()

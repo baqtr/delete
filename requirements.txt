@@ -38,4 +38,3 @@ psutil
 PyGithub
 psycopg2-binary
 pdf2image
-pikepdf

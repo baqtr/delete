@@ -38,7 +38,8 @@ def build_main_buttons(account_count):
         [Button.inline(f"➕ إضافة حساب ({account_count})", data="add")],
         [Button.inline(f"🔑 جلب آخر كود", data="get_code")],
         [Button.inline("📦 نسخ احتياطي", data="backup")],
-        [Button.inline("📤 رفع نسخة احتياطية", data="restore")]
+        [Button.inline("📤 رفع نسخة احتياطية", data="restore")],
+        [Button.inline("🧹 تنظيف الحسابات", data="clean_accounts")]
     ]
 
 # رسالة الترحيب
@@ -83,9 +84,16 @@ async def start_lis(event):
     elif data == "restore":
         await restore_data(event)
 
+    elif data == "clean_accounts":
+        await choose_account_to_clean(event)
+
     elif data.startswith("get_code_"):
         phone_number = data.split("_", 2)[-1]
         await fetch_code(event, phone_number)
+
+    elif data.startswith("clean_"):
+        phone_number = data.split("_", 2)[-1]
+        await clean_account(event, phone_number)
 
 # وظيفة إضافة حساب جديد
 async def add_account(event):
@@ -202,5 +210,48 @@ async def restore_data(event):
 
         await conv.send_message("✅ تم استعادة البيانات بنجاح.", buttons=build_main_buttons(len(data.get("accounts", []))))
         shutil.rmtree('backup')
+
+# وظيفة اختيار الحساب المراد تنظيفه
+async def choose_account_to_clean(event):
+    accounts = db.get("accounts")
+    if not accounts:
+        await event.edit("🚫 لا توجد حسابات مضافة.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
+        return
+
+    buttons = []
+    for account in accounts:
+        buttons.append([Button.inline(f"📱 {account['phone_number']}", data=f"clean_{account['phone_number']}")])
+
+    buttons.append([Button.inline("🔙 رجوع", data="back")])
+    await event.edit("اختر الحساب لتنظيف المحادثات:", buttons=buttons)
+
+# وظيفة تنظيف الحساب
+async def clean_account(event,phone_number):
+    accounts = db.get("accounts")
+    account = next((acc for acc in accounts if acc['phone_number'] == phone_number), None)
+
+    if not account:
+        await event.edit("🚫 الحساب غير موجود.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
+        return
+
+    app = TelegramClient(StringSession(account['session']), API_ID, API_HASH)
+    await app.connect()
+
+    try:
+        await event.edit(f"🧹 جاري تنظيف المحادثات للحساب {phone_number}. العدد الحالي: 0")
+
+        count = 0
+        async for dialog in app.iter_dialogs():
+            await app(functions.messages.DeleteHistoryRequest(peer=dialog.id, max_id=0, just_clear=False, revoke=True))
+            count += 1
+            await event.edit(f"🧹 جاري تنظيف المحادثات للحساب {phone_number}. العدد الحالي: {count}")
+
+        await event.edit(f"✅ تم تنظيف جميع المحادثات للحساب {phone_number}. العدد الإجمالي: {count}", buttons=[[Button.inline("🔙 رجوع", data="back")]])
+
+    except Exception as e:
+        await event.edit(f"❌ حدث خطأ أثناء تنظيف المحادثات: {str(e)}", buttons=[[Button.inline("🔙 رجوع", data="back")]])
+
+    finally:
+        await app.disconnect()
 
 client.run_until_disconnected()

@@ -37,8 +37,8 @@ except:
 if not os.path.isdir('database'):
     os.mkdir('database')
 
-API_ID = "27728127"
-API_HASH = "1d1b5983cf43b6309d12411e13481c9e"
+API_ID = "21669021"
+API_HASH = "bcdae25b210b2cbe27c03117328648a2"
 admin = 7013440973
 allowed_id = 7013440973  # Replace this with the allowed user's Telegram ID
 token = "7464446606:AAFb6FK5oAwLEiuDCftx2cA2jfSBPsyJjj8"
@@ -58,15 +58,15 @@ async def start(event):
         await event.reply("🚫 ليس لديك الصلاحية لاستخدام هذا البوت.")
         return
 
+    accounts = db.get("accounts")  # Get accounts from database
+    num_accounts = len(accounts)
+
     buttons = [
-        [Button.inline("➕ إضافة حساب", data="add")],
-        [Button.inline("🔢 عدد الحسابات", data="account_count")],
-        [Button.inline("📲 جلب جلسة", data="get_session")],
-        [Button.inline("🧹 تنظيف الحسابات", data="clean_accounts")],
-        [Button.inline("📦 نسخة احتياطية", data="zip_all")],
+        [Button.inline(f"➕ إضافة حساب", data="add")],
+        [Button.inline(f"📂 ترتيب الحسابات ({num_accounts})", data="account_settings1")],
         [Button.url("💻 المطور", "https://t.me/xx44g")]
     ]
-    await event.reply("عدد حساباتك الحالي:  {count}", buttons=buttons)
+    await event.reply("👋 مرحبًا بك في بوت إدارة الحسابات، اختر من الأزرار أدناه ما تود فعله.", buttons=buttons)
 
 @client.on(events.callbackquery.CallbackQuery())
 async def start_lis(event):
@@ -78,12 +78,11 @@ async def start_lis(event):
         return
 
     if data == "back" or data == "cancel":
+        accounts = db.get("accounts")
+        num_accounts = len(accounts)
         buttons = [
-            [Button.inline("➕ إضافة حساب", data="add")],
-            [Button.inline("🔢 عدد الحسابات", data="account_count")],
-            [Button.inline("📲 جلب جلسة", data="get_session")],
-            [Button.inline("🧹 تنظيف الحسابات", data="clean_accounts")],
-            [Button.inline("📦 نسخة احتياطية", data="zip_all")],
+            [Button.inline(f"➕ إضافة حساب", data="add")],
+            [Button.inline(f"📂 ترتيب الحسابات ({num_accounts})", data="account_settings1")],
             [Button.url("💻 المطور", "https://t.me/xx44g")]
         ]
         await event.edit("👋 مرحبًا بك في بوت إدارة الحسابات، اختر من الأزرار أدناه ما تود فعله.", buttons=buttons)
@@ -142,114 +141,51 @@ async def start_lis(event):
                 db.set("accounts", accounts)
                 await x.send_message("- تم حفظ الحساب بنجاح ✅", buttons=[[Button.inline("🔙 رجوع", data="back")]])
 
-    if data == "get_session":
-        async with bot.conversation(event.chat_id) as x:
-            acc = db.get("accounts")
-            if len(acc) == 0:
-                await x.send_message("- لا يوجد حسابات مسجلة.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
-                return
-
-            buttons = [[Button.inline(f"📱 {i['phone_number']}", data=f"get_{i['phone_number']}")] for i in acc]
-            buttons.append([Button.inline("🔙 رجوع", data="back")])
-            await x.send_message("- اختر الحساب لجلب الجلسة:", buttons=buttons)
-
-    if data.startswith("get_"):
-        phone_number = data.split("_")[1]
-        acc = db.get("accounts")
-        for i in acc:
-            if phone_number == i['phone_number']:
-                app = TelegramClient(StringSession(i['session']), API_ID, API_HASH)
-                await app.connect()
-
-                # Get account info (name and number of devices)
-                me = await app.get_me()
-                sessions = await app(functions.account.GetAuthorizationsRequest())
-                device_count = len(sessions.authorizations)
-
-                text = f"• رقم الهاتف : {phone_number}\n" \
-                       f"- الاسم : {me.first_name} {me.last_name or ''}\n" \
-                       f"- عدد الاجهزة المتصلة : {device_count}\n" \
-                       f"- التحقق بخطوتين : {i['two-step']}\n" \
-                       f"- الجلسة : `{i['session']}`"
-
-                buttons = [
-                    [Button.inline("🔒 تسجيل خروج", data=f"logout_{phone_number}")],
-                    [Button.inline("📩 جلب الكود", data=f"code_{phone_number}")],
-                    [Button.inline("🔙 رجوع", data="back")]
-                ]
-                await event.edit(text, buttons=buttons)
-                await app.disconnect()
-
-    if data.startswith("logout_"):
-        phone_number = data.split("_")[1]
-        acc = db.get("accounts")
-        for i in acc:
-            if phone_number == i['phone_number']:
-                app = TelegramClient(StringSession(i['session']), API_ID, API_HASH)
-                await app.connect()
-                await app.log_out()
-                await app.disconnect()# Remove the account from the database
-                acc.remove(i)
-                db.set("accounts", acc)
-
-                await event.edit(f"- تم تسجيل الخروج من الحساب: {phone_number}", buttons=[[Button.inline("🔙 رجوع", data="back")]])
-
-    if data.startswith("code_"):
-        phone_number = data.split("_")[1]
-        acc = db.get("accounts")
-        for i in acc:
-            if phone_number == i['phone_number']:
-                app = TelegramClient(StringSession(i['session']), API_ID, API_HASH)
-                await app.connect()
-                code = await app.get_messages(777000, limit=1)
-                await event.edit(f"اخر كود تم استلامه: {code[0].message}", buttons=[[Button.inline("🔙 رجوع", data="back")]])
-                await app.disconnect()
-
-    if data == "account_count":
+    if data == "account_settings1":
         accounts = db.get("accounts")
-        count = len(accounts)
-        await event.edit(f"🔢 عدد الحسابات المسجلة: {count}", buttons=[[Button.inline("🔙 رجوع", data="back")]])
+        if not accounts:
+            await event.edit("🚫 لا يوجد حسابات مضافة بعد.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
+            return
 
-    if data == 'zip_all':
-        folder_path = f"./database"
-        zip_file_name = f"database.zip"
-        zip_file_nam = f"database"
-        try:
-            shutil.make_archive(zip_file_nam, 'zip', folder_path)
-            with open(zip_file_name, 'rb') as zip_file:
-                await client.send_file(user_id, zip_file, attributes=[DocumentAttributeFilename(file_name="database.zip")])
-            os.remove(zip_file_name)
-            await event.edit("- تم إرسال النسخة الاحتياطية بنجاح ✅", buttons=[[Button.inline("🔙 رجوع", data="back")]])
-        except Exception as a:
-            await event.edit(f"❌ حدث خطأ أثناء إنشاء النسخة الاحتياطية: {a}", buttons=[[Button.inline("🔙 رجوع", data="back")]])
+        buttons = []
+        for account in accounts:
+            buttons.append([Button.inline(account['phone_number'], data=f"sort_{account['phone_number']}")])
+        buttons.append([Button.inline("🔙 رجوع", data="back")])
+        await event.edit("👤 اختر الحساب الذي تود ترتيبه:", buttons=buttons)
 
-    if data == "clean_accounts":
-        async with bot.conversation(event.chat_id) as x:
-            acc = db.get("accounts")
-            if len(acc) == 0:
-                await x.send_message("- لا يوجد حسابات مسجلة.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
-                return
+@client.on(events.callbackquery.CallbackQuery(pattern=r"sort_(.+)"))
+async def sort_account(event):
+    phone_number = event.pattern_match.group(1)
+    accounts = db.get("accounts")
 
-            total_deleted = 0
-            progress_message = await x.send_message(f"🧹 جاري حذف المحادثات...\n- المحادثات المحذوفة حتى الآن: {total_deleted}")
+    # Find the account selected for sorting
+    account = next((acc for acc in accounts if acc['phone_number'] == phone_number), None)
+    if not account:
+        await event.edit("❌ الحساب غير موجود.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
+        return
 
-            for account in acc:
-                app = TelegramClient(StringSession(account['session']), API_ID, API_HASH)
-                await app.connect()
-
-                dialogs = await app.get_dialogs()
-                for dialog in dialogs:
-                    try:
-                        await app.delete_dialog(dialog.id)
-                        total_deleted += 1
-                        # تحديث الرسالة مع العدد الحالي
-                        await progress_message.edit(f"🧹 جاري حذف المحادثات...\n- المحادثات المحذوفة حتى الآن: {total_deleted}")
-                    except Exception as e:
-                        await x.send_message(f"حدث خطأ مع الحساب {account['phone_number']}: {e}")
-
-                await app.disconnect()
-
-            # الرسالة النهائية بعد انتهاء الحذف
-            await progress_message.edit(f"🧹 تم حذف جميع المحادثات بنجاح.\n- العدد الإجمالي للمحادثات المحذوفة: {total_deleted}", buttons=[[Button.inline("🔙 رجوع", data="back")]])
+    client = TelegramClient(
+        StringSession(account['session']),
+        api_id=API_ID,
+        api_hash=API_HASH
+    )
+    await client.start()
+    try:
+        photo = random.randint(2, 41)
+        name = random.randint(2, 41)
+        bio = random.randint(1315, 34171)
+        msg = await client.get_messages("botnasheravtar", photo)
+        msg1 = await client.get_messages("botnashername", name)
+        file = await client.download_media(msg)
+        msg3 = await client.get_messages("UURRCC", bio)
+        await client.set_profile_photo(photo=file)
+        await client.update_profile(first_name=msg1.text)
+        await client.update_profile(bio=msg3.text)
+        await client.stop()
+        await event.edit(f"- تم ترتيب الحساب ({phone_number}) بنجاح ✅", buttons=[[Button.inline("🔙 رجوع", data="back")]])
+    except Exception as e:
+        print(e)
+        await client.stop()
+        await event.edit("❌ حدث خطأ أثناء ترتيب الحساب.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
 
 client.run_until_disconnected()

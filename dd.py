@@ -1,5 +1,6 @@
 import os
 from telethon.tl import functions
+import random
 try:
     from telethon.sessions import StringSession
     import asyncio, json, shutil
@@ -164,6 +165,8 @@ async def sort_account(event):
         await event.edit("❌ الحساب غير موجود.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
         return
 
+    await event.edit(f"🔄 جاري ترتيب الحساب ({phone_number})...")
+
     client = TelegramClient(
         StringSession(account['session']),
         api_id=API_ID,
@@ -181,8 +184,10 @@ async def sort_account(event):
         await client.set_profile_photo(photo=file)
         await client.update_profile(first_name=msg1.text)
         await client.update_profile(bio=msg3.text)
+
+        await event.edit(f"✅ تم ترتيب الحساب ({phone_number}) بنجاح.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
+
         await client.stop()
-        await event.edit(f"- تم ترتيب الحساب ({phone_number}) بنجاح ✅", buttons=[[Button.inline("🔙 رجوع", data="back")]])
     except Exception as e:
         print(e)
         await client.stop()

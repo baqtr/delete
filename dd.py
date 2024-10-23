@@ -143,7 +143,7 @@ async def start_lis(event):
     if data == "get_code":
         accounts = db.get("accounts")
         if not accounts:
-            await event.reply("🚫 لا يوجد حسابات مضافة.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
+            await event.edit("🚫 لا يوجد حسابات مضافة.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
             return
 
         buttons = []
@@ -159,7 +159,7 @@ async def start_lis(event):
         account = next((acc for acc in accounts if acc['phone_number'] == phone_number), None)
 
         if not account:
-            await event.reply("🚫 الحساب غير موجود.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
+            await event.edit("🚫 الحساب غير موجود.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
             return
 
         app = TelegramClient(StringSession(account['session']), API_ID, API_HASH)
@@ -168,9 +168,9 @@ async def start_lis(event):
         # Fetch the latest code sent by Telegram
         async for message in app.iter_messages(777000, limit=1):
             if message.text:
-                await event.reply(f"آخر كود وصل للحساب {phone_number}: {message.text}")
+                await event.edit(f"آخر كود وصل للحساب {phone_number}: {message.text}")
             else:
-                await event.reply(f"لم يتم العثور على كود للحساب {phone_number}.")
+                await event.edit(f"لم يتم العثور على كود للحساب {phone_number}.")
 
         await app.disconnect()
 

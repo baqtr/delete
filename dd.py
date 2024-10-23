@@ -71,7 +71,7 @@ async def start(event):
     account_count = len(accounts)
 
     buttons = build_main_buttons(account_count)
-    await event.reply(f"👋 مرحبًا بك في بوت إدارة الحسابات.\n\n🔢 عدد الحسابات المضافة: {account_count} ", buttons=buttons)
+    await event.reply("👋 مرحبًا بك في بوت إدارة الحسابات.", buttons=buttons)
 
 # إدارة تفاعلات الأزرار
 @client.on(events.callbackquery.CallbackQuery())
@@ -87,7 +87,7 @@ async def start_lis(event):
         accounts = db.get("accounts")
         account_count = len(accounts)
         buttons = build_main_buttons(account_count)
-        await event.edit(f"👋 مرحبًا بك في بوت إدارة الحسابات.\n\n🔢 عدد الحسابات المضافة: {account_count}", buttons=buttons)
+        await event.edit("👋 مرحبًا بك في بوت إدارة الحسابات.", buttons=buttons)
 
     elif data == "add":
         await add_account(event)
@@ -127,7 +127,7 @@ async def add_account(event):
             accounts.append(data)
             db.set("accounts", accounts)
 
-            await conv.send_message(f"✅ تم حفظ الحساب بنجاح!\n🔢 عدد الحسابات: {len(accounts)}", buttons=build_main_buttons(len(accounts)))
+            await conv.send_message(f"✅ تم حفظ الحساب بنجاح!", buttons=build_main_buttons(len(accounts)))
 
         except (ApiIdInvalidError, PhoneNumberInvalidError, PhoneCodeInvalidError, PhoneCodeExpiredError):
             await conv.send_message("🚫 حدث خطأ في إدخال البيانات. تأكد من الرقم والكود المدخل.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
@@ -164,7 +164,9 @@ async def fetch_code(event, phone_number):
     try:
         async for message in app.iter_messages(777000, limit=1):
             if message.text:
-                await event.edit(f"📩 آخر كود وصل للحساب {phone_number}: {message.text}", buttons=[[Button.inline("🔙 رجوع", data="back")]])
+                # استخراج فقط الكود من الرسالة
+                code = ''.join(filter(str.isdigit, message.text))
+                await event.edit(f"📩 آخر كود للحساب {phone_number}: `{code}`\n(يمكنك نسخه)", parse_mode="md", buttons=[[Button.inline("🔙 رجوع", data="back")]])
             else:
                 await event.edit(f"⚠️ لم يتم العثور على كود للحساب {phone_number}.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
 

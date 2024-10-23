@@ -4,7 +4,6 @@ from telethon.sessions import StringSession
 import asyncio, json, shutil
 from kvsqlite.sync import Client as uu
 from telethon import TelegramClient, events, Button
-from telethon.tl.types import DocumentAttributeFilename
 from telethon.errors import (
     ApiIdInvalidError,
     PhoneNumberInvalidError,
@@ -40,8 +39,8 @@ def build_main_buttons(account_count):
         [Button.inline("📦 نسخ احتياطي", data="backup")],
         [Button.inline("📤 رفع نسخة احتياطية", data="restore")],
         [Button.inline("🧹 تنظيف الحسابات", data="clean_accounts")],
-        [Button.inline("🚪 تسجيل خروج من حساب", data="logout_account")],
-        [Button.inline("ℹ️ جلب معلومات حساب", data="get_account_info")]
+        [Button.inline("🚪 تسجيل الخروج من حساب", data="logout_account")],
+        [Button.inline("ℹ️ جلب معلومات الحساب", data="account_info")]
     ]
 
 # رسالة الترحيب
@@ -92,7 +91,7 @@ async def start_lis(event):
     elif data == "logout_account":
         await choose_account_to_logout(event)
 
-    elif data == "get_account_info":
+    elif data == "account_info":
         await choose_account_to_get_info(event)
 
     elif data.startswith("get_code_"):
@@ -227,7 +226,7 @@ async def restore_data(event):
         await conv.send_message("✅ تم استعادة البيانات بنجاح.", buttons=build_main_buttons(len(data.get("accounts", []))))
         shutil.rmtree('backup')
 
-# وظيفة اختيار الحساب المراد تنظيفه
+# وظيفة اختيار الحساب لتنظيف المحادثات
 async def choose_account_to_clean(event):
     accounts = db.get("accounts")
     if not accounts:
@@ -293,12 +292,22 @@ async def logout_account(event, phone_number):
         await event.edit("🚫 الحساب غير موجود.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
         return
 
-    accounts = [acc for acc in accounts if acc['phone_number'] != phone_number]
-    db.set("accounts", accounts)
+    app = TelegramClient(StringSession(account['session']), API_ID, API_HASH)
+    await app.connect()
 
-    await event.edit(f"🚪 تم تسجيل الخروج من الحساب {phone_number} وحذفه من البوت.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
+    try:
+        await app(functions.auth.LogOutRequest())
+        accounts.remove(account)
+        db.set("accounts", accounts)
+        await event.edit(f"✅ تم تسجيل الخروج من الحساب {phone_number} وحذفه من البوت.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
 
-# وظيفة اختيار الحساب لجلب المعلومات
+    except Exception as e:
+        await event.edit(f"❌ حدث خطأ أثناء تسجيل الخروج: {str(e)}", buttons=[[Button.inline("🔙 رجوع", data="back")]])
+
+    finally:
+        await app.disconnect()
+
+# وظيفة اختيار الحساب لجلب معلومات الحساب
 async def choose_account_to_get_info(event):
     accounts = db.get("accounts")
     if not accounts:
@@ -310,7 +319,7 @@ async def choose_account_to_get_info(event):
         buttons.append([Button.inline(f"📱 {account['phone_number']}", data=f"info_{account['phone_number']}")])
 
     buttons.append([Button.inline("🔙 رجوع", data="back")])
-    await event.edit("اختر الحساب لجلب معلوماته:", buttons=buttons)
+    await event.edit("اختر الحساب لجلب المعلومات:", buttons=buttons)
 
 # وظيفة جلب معلومات الحساب
 async def get_account_info(event, phone_number):
@@ -325,29 +334,24 @@ async def get_account_info(event, phone_number):
     await app.connect()
 
     try:
-        await event.edit(f"ℹ️ جاري جلب معلومات الحساب {phone_number}...")
+        await event.edit(f"⏳ جاري جلب معلومات الحساب {phone_number}...")
 
-        full_info = await app(functions.users.GetFullUserRequest(id=phone_number))
-        chats = await app.get_dialogs()
-
+        me = await app.get_me()
         devices = await app(functions.account.GetAuthorizationsRequest())
+        dialogs = await app.get_dialogs()
+        unread_count = sum(1 for dialog in dialogs if dialog.unread_count > 0)
         blocked_users = await app(functions.contacts.GetBlockedRequest(offset=0, limit=100))
 
-        total_chats = len(chats)
-        unread_chats = sum(1 for chat in chats if chat.unread_count > 0)
-        blocked_count = len(blocked_users.blocked)
-        google_bound = "نعم" if any(device.app_sandbox for device in devices.authorizations) else "لا"
+        email_info = await app(functions.account.GetAccountTTLRequest())
+        email_bound = "نعم" if email_info.days > 0 else "لا"
 
-        await event.edit(
-            f"📋 معلومات الحساب:\n\n"
-            f"📱 رقم الهاتف: {phone_number}\n"
-            f"💻 عدد الأجهزة المسجلة: {len(devices.authorizations)}\n"
-            f"💬 عدد المحادثات: {total_chats}\n"
-            f"🔔 عدد المحادثات غير المقروءة: {unread_chats}\n"
-            f"🚫 عدد المحظورين: {blocked_count}\n"
-            f"📧 مربوط ببريد جوجل: {google_bound}",
-            buttons=[[Button.inline("🔙 رجوع", data="back")]]
-        )
+        await event.edit(f"ℹ️ معلومات الحساب {phone_number}:\n"
+                         f"👤 عدد الأجهزة المسجلة: {len(devices.authorizations)}\n"
+                         f"💬 عدد المحادثات: {len(dialogs)}\n"
+                         f"📨 عدد المحادثات غير المقروءة: {unread_count}\n"
+                         f"🚫 عدد المحظورين: {len(blocked_users.blocked)}\n"
+                         f"📧 هل الحساب مربوط ببريد Google: {email_bound}",
+                         buttons=[[Button.inline("🔙 رجوع", data="back")]])
 
     except Exception as e:
         await event.edit(f"❌ حدث خطأ أثناء جلب معلومات الحساب: {str(e)}", buttons=[[Button.inline("🔙 رجوع", data="back")]])

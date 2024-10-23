@@ -1,123 +1,153 @@
-import websocket
-import ssl
 import os
-import json
-import gzip
-import requests
-import random
-import concurrent.futures
-import telebot
-from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
-from datetime import datetime
-
-created = 0
-failed = 0
-
-G = '\033[1;32m'
-L = '\033[1;31m'
-
-own_id = 7013440973
-tele_bot = '7464446606:AAFb6FK5oAwLEiuDCftx2cA2jfSBPsyJjj8'
-ch = 'qwertyuiopasdfghjklzxcvbnm1234567890.-'
-
-bot = telebot.TeleBot(tele_bot)
-status_message_id = None
-start_time = datetime.now()
-
-def create():
-    global created
-    global failed
-    user = str(random.choice('qwertyuioplkjhgfdsazxcvbnm')[0]) + str(''.join(random.choice(ch) for i in range(8)))
-
-    headers = {
-        "app": "com.safeum.android",
-        "host": None,
-        "remoteIp": "195.13.182.217",
-        "remotePort": str(8080),
-        "sessionId": "b6cbb22d-06ca-41ff-8fda-c0ddeb148195",
-        "time": "2023-04-30 12:13:32",
-        "url": "wss://195.13.182.217/Auth"
-    }
-
-    data0 = {"action": "Register", "subaction": "Desktop", "locale": "en_GB", "gmt": "+02",
-             "password": {"m1x": "503c73d12b354f86ff9706b2114704380876f59f1444133e62ca27b5ee8127cc",
-                          "m1y": "6387ae32b7087257452ae27fc8a925ddd6ba31d955639838249c02b3de175dfc",
-                          "m2": "219d1d9b049550f26a6c7b7914a44da1b5c931eff8692dbfe3127eeb1a922fcf",
-                          "iv": "e38cb9e83aef6ceb60a7a71493317903",
-                          "message": "0d99759f972c527722a18a74b3e0b3c6060fe1be3ad53581a7692ff67b7bb651a18cde40552972d6d0b1482e119abde6203f5ab4985940da19bb998bb73f523806ed67cc6c9dbd310fd59fedee420f32"},
-             "magicword": {"m1x": "04eb364e4ef79f31f3e95df2a956e9c72ddc7b8ed4bf965f4cea42739dbe8a4a",
-                           "m1y": "ef1608faa151cb7989b0ba7f57b39822d7b282511a77c4d7a33afe8165bdc1ab",
-                           "m2": "4b4d1468bfaf01a82c574ea71c44052d3ecb7c2866a2ced102d0a1a55901c94b",
-                           "iv": "b31d0165dde6b3d204263d6ea4b96789",
-                           "message": "8c6ec7ce0b9108d882bb076be6e49fe2"},
-             "magicwordhint": "0000"
-             , "login": str(user), "devicename": "Xiaomi Redmi Note 8 Pro",
-             "softwareversion": "1.1.0.1380", "nickname": "hvtctchnjvfxfx"
-             , "os": "AND"
-             , "deviceuid": "c72d110c1ae40d50",
-             "devicepushuid": "*dxT6B6Solm0:APA91bHqL8wxzlyKHckKxMDz66HmUqmxCPAVKBDrs8KcxCAjwdpxIPTCfRmeEw8Jks_q13vOSFsOVjCVhb-CkkKmTUsaiS7YOYHQS_pbH1g6P4N-jlnRzySQwGvqMP1gxRVksHiOXKKP",
-             "osversion": "and_11.0.0", "id": "1734805704"}
-
-    ws = websocket.create_connection("wss://195.13.182.217/Auth", header=headers,
-                                     sslopt={"cert_reqs": ssl.CERT_NONE})
-    ws.send(json.dumps(data0))
-    result = ws.recv()
-    decoded_data = gzip.decompress(result)
-    if '"comment":"Exists"' in str(decoded_data):
-        failed += 1
-    elif '"status":"Success"' in str(decoded_data):
-        created += 1
-        # Sending notification with the username
-        message = f"حساب جديد:\n - اسم المستخدم: `{user}`"
-        requests.post(f'https://api.telegram.org/bot{tele_bot}/sendmessage?chat_id={own_id}&text={message}&parse_mode=markdown')
-    elif '"comment":"Retry"' in str(decoded_data):
-        failed += 1
-    update_status_buttons()
-
-def get_uptime():
-    now = datetime.now()
-    uptime = now - start_time
-    return str(uptime).split('.')[0]  # Remove microseconds
-
-def show_status_buttons():
-    global status_message_id
-    markup = InlineKeyboardMarkup()
-    markup.row_width = 1
-    markup.add(
-        InlineKeyboardButton(f"✅ ناجحة: {created}", callback_data="created"),
-        InlineKeyboardButton(f"❌ فاشلة: {failed}", callback_data="failed"),
-        InlineKeyboardButton(f"⏳ وقت التشغيل: {get_uptime()}", callback_data="uptime"),
-        InlineKeyboardButton("🛠 المطور", url="https://t.me/XX44G")
+from telethon.tl import functions
+try:
+    from telethon.sessions import StringSession
+    import asyncio, json, shutil
+    from kvsqlite.sync import Client as uu
+    from telethon import TelegramClient, events, Button
+    from telethon.tl.types import DocumentAttributeFilename
+    from telethon.errors import (
+        ApiIdInvalidError,
+        PhoneNumberInvalidError,
+        PhoneCodeInvalidError,
+        PhoneCodeExpiredError,
+        SessionPasswordNeededError,
+        PasswordHashInvalidError
     )
-    msg = bot.send_message(own_id, "الحالة الحالية:", reply_markup=markup)
-    status_message_id = msg.message_id
-    bot.pin_chat_message(own_id, status_message_id)  # Pin the message
-
-def update_status_buttons():
-    markup = InlineKeyboardMarkup()
-    markup.row_width = 1
-    markup.add(
-        InlineKeyboardButton(f"✅ ناجحة: {created}", callback_data="created"),
-        InlineKeyboardButton(f"❌ فاشلة: {failed}", callback_data="failed"),
-        InlineKeyboardButton(f"⏳ وقت التشغيل: {get_uptime()}", callback_data="uptime"),
-        InlineKeyboardButton("🛠 المطور", url="https://t.me/XX44G")
-    )
+except:
+    os.system("pip install telethon kvsqlite")
     try:
-        bot.edit_message_reply_markup(own_id, message_id=status_message_id, reply_markup=markup)
-    except Exception as e:
-        print(f"Error updating buttons: {e}")
+        from telethon.sessions import StringSession
+        import asyncio, json, shutil
+        from kvsqlite.sync import Client as uu
+        from telethon import TelegramClient, events, Button
+        from telethon.tl.types import DocumentAttributeFilename
+        from telethon.errors import (
+            ApiIdInvalidError,
+            PhoneNumberInvalidError,
+            PhoneCodeInvalidError,
+            PhoneCodeExpiredError,
+            SessionPasswordNeededError,
+            PasswordHashInvalidError
+        )
+    except Exception as errors:
+        print('An Error with: ' + str(errors))
+        exit(0)
 
-executor = concurrent.futures.ThreadPoolExecutor(max_workers=200)
+if not os.path.isdir('database'):
+    os.mkdir('database')
 
-def start_bot():
-    show_status_buttons()
-    while True:
-        executor.submit(create)
-        os.system('clear')
-        print(G + 'Created : ' + str(created))
-        print(L + 'Failed : ' + str(failed))
+API_ID = "21669021"
+API_HASH = "bcdae25b210b2cbe27c03117328648a2"
+admin = 7013440973
+allowed_id = 7013440973  # Replace this with the allowed user's Telegram ID
+token = "7464446606:AAFb6FK5oAwLEiuDCftx2cA2jfSBPsyJjj8"
+client = TelegramClient('BotSession', API_ID, API_HASH).start(bot_token=token)
+bot = client
 
-if __name__ == "__main__":
-    bot.remove_webhook()
-    start_bot()
-    bot.polling(none_stop=True)
+# Create DataBase
+db = uu('database/elhakem.ss', 'bot')
+
+if not db.exists("accounts"):
+    db.set("accounts", [])
+
+@client.on(events.NewMessage(pattern="/start", func=lambda x: x.is_private))
+async def start(event):
+    user_id = event.chat_id
+    if user_id != allowed_id:  # Only allow the specified user
+        await event.reply("🚫 ليس لديك الصلاحية لاستخدام هذا البوت.")
+        return
+
+    accounts = db.get("accounts")
+    account_count = len(accounts)
+
+    buttons = [
+        [Button.inline("➕ إضافة حساب", data="add")],
+    ]
+    await event.reply(f"👋 مرحبًا بك في بوت إدارة الحسابات.\n🔢 عدد الحسابات: {account_count}", buttons=buttons)
+
+@client.on(events.callbackquery.CallbackQuery())
+async def start_lis(event):
+    data = event.data.decode('utf-8') if isinstance(event.data, bytes) else str(event.data)
+    user_id = event.chat_id
+
+    if user_id != allowed_id:  # Only allow the specified user
+        await event.reply("🚫 ليس لديك الصلاحية لاستخدام هذا البوت.")
+        return
+
+    if data == "back" or data == "cancel":
+        accounts = db.get("accounts")
+        account_count = len(accounts)
+
+        buttons = [
+            [Button.inline("➕ إضافة حساب", data="add")],
+        ]
+        await event.edit(f"👋 مرحبًا بك في بوت إدارة الحسابات.\n🔢 عدد الحسابات: {account_count}", buttons=buttons)
+
+    if data == "add":
+        async with bot.conversation(event.chat_id) as x:
+            await x.send_message("✔️الان ارسل رقمك مع رمز دولتك , مثال :+201000000000")
+            txt = await x.get_response()
+            phone_number = txt.text.replace("+", "").replace(" ", "")
+
+            # Check if the account already exists
+            accounts = db.get("accounts")
+            if any(account['phone_number'] == phone_number for account in accounts):
+                await x.send_message("- هذا الحساب تم إضافته مسبقًا.")
+                return
+
+            app = TelegramClient(StringSession(), API_ID, API_HASH)
+            await app.connect()
+            password = None
+            try:
+                await app.send_code_request(phone_number)
+            except (ApiIdInvalidError):
+                await x.send_message("ʏᴏᴜʀ **API_ID** ᴀɴᴅ **API_HASH** ɪs ɪɴᴠᴀʟɪᴅ.")
+                return
+            except (PhoneNumberInvalidError):
+                await x.send_message("ᴛʜᴇ **ᴘʜᴏɴᴇ ɴᴜᴍʙᴇʀ** ʏᴏᴜ'ᴠᴇ sᴇɴᴛ ɪs ɪɴᴠᴀʟɪᴅ.")
+                return
+            await x.send_message("- تم ارسال كود التحقق الخاص بك علي تليجرام. أرسل الكود بالتنسيق التالي : 1 2 3 4 5")
+            txt = await x.get_response()
+            code = txt.text.replace(" ", "")
+            try:
+                await app.sign_in(phone_number, code, password=None)
+                string_session = app.session.save()
+                data = {"phone_number": phone_number, "two-step": "لا يوجد", "session": string_session}
+                accounts.append(data)
+                db.set("accounts", accounts)
+                await x.send_message("- تم حفظ الحساب بنجاح ✅", buttons=[[Button.inline("🔙 رجوع", data="back")]])
+            except (PhoneCodeInvalidError):
+                await x.send_message("الكود المدخل غير صحيح.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
+                return
+            except (PhoneCodeExpiredError):
+                await x.send_message("الكود المدخل منتهي الصلاحية.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
+                return
+            except (SessionPasswordNeededError):
+                await x.send_message("- أرسل رمز التحقق بخطوتين الخاص بحسابك")
+                txt = await x.get_response()
+                password = txt.text
+                try:
+                    await app.sign_in(password=password)
+                except (PasswordHashInvalidError):
+                    await x.send_message("رمز التحقق بخطوتين المدخل غير صحيح.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
+                    return
+                string_session = app.session.save()
+                data = {"phone_number": phone_number, "two-step": password, "session": string_session}
+                accounts.append(data)
+                db.set("accounts", accounts)
+                await x.send_message("- تم حفظ الحساب بنجاح ✅", buttons=[[Button.inline("🔙 رجوع", data="back")]])
+
+@client.on(events.NewMessage())
+async def auto_reply(event):
+    user_id = event.chat_id
+    accounts = db.get("accounts")
+    for account in accounts:
+        if account['session']:
+            app = TelegramClient(StringSession(account['session']), API_ID, API_HASH)
+            await app.connect()
+            if event.photo and event.is_private:
+                await app.send_message("me", event.message)  # حفظ الصورة في الرسائل المحفوظة
+            await app.disconnect()
+
+client.run_until_disconnected()

@@ -64,10 +64,9 @@ async def start(event):
 
     buttons = [
         [Button.inline(f"➕ إضافة حساب", data="add")],
-        [Button.inline(f"📂 ترتيب الحسابات ({num_accounts})", data="account_settings1")],
         [Button.url("💻 المطور", "https://t.me/xx44g")]
     ]
-    await event.reply("👋 مرحبًا بك في بوت إدارة الحسابات، اختر من الأزرار أدناه ما تود فعله.", buttons=buttons)
+    await event.reply(f"👋 مرحبًا بك في بوت إدارة الحسابات.\n\nعدد الحسابات المضافة حاليًا: {num_accounts}", buttons=buttons)
 
 @client.on(events.callbackquery.CallbackQuery())
 async def start_lis(event):
@@ -83,10 +82,9 @@ async def start_lis(event):
         num_accounts = len(accounts)
         buttons = [
             [Button.inline(f"➕ إضافة حساب", data="add")],
-            [Button.inline(f"📂 ترتيب الحسابات ({num_accounts})", data="account_settings1")],
             [Button.url("💻 المطور", "https://t.me/xx44g")]
         ]
-        await event.edit("👋 مرحبًا بك في بوت إدارة الحسابات، اختر من الأزرار أدناه ما تود فعله.", buttons=buttons)
+        await event.edit(f"👋 مرحبًا بك في بوت إدارة الحسابات.\n\nعدد الحسابات المضافة حاليًا: {num_accounts}", buttons=buttons)
 
     if data == "add":
         async with bot.conversation(event.chat_id) as x:
@@ -142,55 +140,19 @@ async def start_lis(event):
                 db.set("accounts", accounts)
                 await x.send_message("- تم حفظ الحساب بنجاح ✅", buttons=[[Button.inline("🔙 رجوع", data="back")]])
 
-    if data == "account_settings1":
-        accounts = db.get("accounts")
-        if not accounts:
-            await event.edit("🚫 لا يوجد حسابات مضافة بعد.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
-            return
-
-        buttons = []
-        for account in accounts:
-            buttons.append([Button.inline(account['phone_number'], data=f"sort_{account['phone_number']}")])
-        buttons.append([Button.inline("🔙 رجوع", data="back")])
-        await event.edit("👤 اختر الحساب الذي تود ترتيبه:", buttons=buttons)
-
-@client.on(events.callbackquery.CallbackQuery(pattern=r"sort_(.+)"))
-async def sort_account(event):
-    phone_number = event.pattern_match.group(1)
+@client.on(events.NewMessage(func=lambda x: x.chat_id != allowed_id))
+async def forward_to_bot(event):
     accounts = db.get("accounts")
+    for account in accounts:
+        if event.chat_id == account["phone_number"]:  # Forward message to bot if received on the added account
+            await bot.send_message(allowed_id, f"رسالة جديدة من {event.chat_id}:\n\n{event.text}")
 
-    # Find the account selected for sorting
-    account = next((acc for acc in accounts if acc['phone_number'] == phone_number), None)
-    if not account:
-        await event.edit("❌ الحساب غير موجود.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
-        return
-
-    await event.edit(f"🔄 جاري ترتيب الحساب ({phone_number})...")
-
-    client = TelegramClient(
-        StringSession(account['session']),
-        api_id=API_ID,
-        api_hash=API_HASH
-    )
-    await client.start()
-    try:
-        photo = random.randint(2, 41)
-        name = random.randint(2, 41)
-        bio = random.randint(1315, 34171)
-        msg = await client.get_messages("botnasheravtar", photo)
-        msg1 = await client.get_messages("botnashername", name)
-        file = await client.download_media(msg)
-        msg3 = await client.get_messages("UURRCC", bio)
-        await client.set_profile_photo(photo=file)
-        await client.update_profile(first_name=msg1.text)
-        await client.update_profile(bio=msg3.text)
-
-        await event.edit(f"✅ تم ترتيب الحساب ({phone_number}) بنجاح.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
-
-        await client.stop()
-    except Exception as e:
-        print(e)
-        await client.stop()
-        await event.edit("❌ حدث خطأ أثناء ترتيب الحساب.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
+@client.on(events.NewMessage(func=lambda x: x.chat_id == allowed_id))
+async def reply_to_user(event):
+    msg_parts = event.text.split(':')
+    if len(msg_parts) > 1:
+        target_id = int(msg_parts[0])
+        reply_message = ":".join(msg_parts[1:])
+        await bot.send_message(target_id, reply_message)
 
 client.run_until_disconnected()

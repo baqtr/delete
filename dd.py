@@ -140,19 +140,36 @@ async def start_lis(event):
                 db.set("accounts", accounts)
                 await x.send_message("- تم حفظ الحساب بنجاح ✅", buttons=[[Button.inline("🔙 رجوع", data="back")]])
 
-@client.on(events.NewMessage(func=lambda x: x.chat_id != allowed_id))
+@client.on(events.NewMessage(func=lambda event: event.is_private and event.sender_id != allowed_id))
 async def forward_to_bot(event):
     accounts = db.get("accounts")
     for account in accounts:
-        if event.chat_id == account["phone_number"]:  # Forward message to bot if received on the added account
-            await bot.send_message(allowed_id, f"رسالة جديدة من {event.chat_id}:\n\n{event.text}")
+        if event.sender_id == account["phone_number"]:  # Forward message to bot if received on the added account
+            await bot.send_message(
+                allowed_id, 
+                f"📨 رسالة جديدة من الحساب {account['phone_number']}:\n\n"
+                f"👤 المستخدم: {event.sender_id}\n"
+                f"✉️ الرسالة: {event.text}",
+                buttons=[Button.inline("✏️ رد", data=f"reply_{event.sender_id}_{account['phone_number']}")]
+            )
 
-@client.on(events.NewMessage(func=lambda x: x.chat_id == allowed_id))
+@client.on(events.callbackquery.CallbackQuery(pattern=r"reply_(\d+)_(\d+)"))
 async def reply_to_user(event):
-    msg_parts = event.text.split(':')
-    if len(msg_parts) > 1:
-        target_id = int(msg_parts[0])
-        reply_message = ":".join(msg_parts[1:])
-        await bot.send_message(target_id, reply_message)
+    sender_id = int(event.pattern_match.group(1))
+    phone_number = event.pattern_match.group(2)
+
+    async with bot.conversation(event.chat_id) as conv:
+        await conv.send_message("✏️ اكتب الرسالة التي تود إرسالها:")
+        reply_message = await conv.get_response()
+
+        accounts = db.get("accounts")
+        account = next(acc for acc in accounts if acc['phone_number'] == phone_number)
+        client = TelegramClient(StringSession(account['session']), API_ID, API_HASH)
+        await client.start()
+
+        await client.send_message(sender_id, reply_message.text)
+        await conv.send_message("✅ تم إرسال الرد بنجاح.")
+
+        await client.disconnect()
 
 client.run_until_disconnected()

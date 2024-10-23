@@ -173,3 +173,5 @@ async def start_lis(event):
                 await event.reply(f"لم يتم العثور على كود للحساب {phone_number}.")
 
         await app.disconnect()
+
+client.run_until_disconnected()

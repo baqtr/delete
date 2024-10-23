@@ -1,38 +1,18 @@
 import os
 from telethon.tl import functions
-try:
-    from telethon.sessions import StringSession
-    import asyncio, json, shutil
-    from kvsqlite.sync import Client as uu
-    from telethon import TelegramClient, events, Button
-    from telethon.tl.types import DocumentAttributeFilename
-    from telethon.errors import (
-        ApiIdInvalidError,
-        PhoneNumberInvalidError,
-        PhoneCodeInvalidError,
-        PhoneCodeExpiredError,
-        SessionPasswordNeededError,
-        PasswordHashInvalidError
-    )
-except:
-    os.system("pip install telethon kvsqlite")
-    try:
-        from telethon.sessions import StringSession
-        import asyncio, json, shutil
-        from kvsqlite.sync import Client as uu
-        from telethon import TelegramClient, events, Button
-        from telethon.tl.types import DocumentAttributeFilename
-        from telethon.errors import (
-            ApiIdInvalidError,
-            PhoneNumberInvalidError,
-            PhoneCodeInvalidError,
-            PhoneCodeExpiredError,
-            SessionPasswordNeededError,
-            PasswordHashInvalidError
-        )
-    except Exception as errors:
-        print(f"An Error occurred: {str(errors)}")
-        exit(0)
+from telethon.sessions import StringSession
+import asyncio, json, shutil
+from kvsqlite.sync import Client as uu
+from telethon import TelegramClient, events, Button
+from telethon.tl.types import DocumentAttributeFilename
+from telethon.errors import (
+    ApiIdInvalidError,
+    PhoneNumberInvalidError,
+    PhoneCodeInvalidError,
+    PhoneCodeExpiredError,
+    SessionPasswordNeededError,
+    PasswordHashInvalidError
+)
 
 # إعدادات البوت وقاعدة البيانات
 if not os.path.isdir('database'):
@@ -144,7 +124,7 @@ async def get_code(event):
 
     buttons = []
     for account in accounts:
-        buttons.append([Button.inline(account['phone_number'], data=f"get_code_{account['phone_number']}")])
+        buttons.append([Button.inline(f"📱 {account['phone_number']}", data=f"get_code_{account['phone_number']}")])
 
     buttons.append([Button.inline("🔙 رجوع", data="back")])
     await event.edit("اختر الحساب لجلب آخر كود:", buttons=buttons)
@@ -166,7 +146,7 @@ async def fetch_code(event, phone_number):
             if message.text:
                 # استخراج فقط الكود من الرسالة
                 code = ''.join(filter(str.isdigit, message.text))
-                await event.edit(f"📩 آخر كود للحساب {phone_number}:(`{code}`) \n(يمكنك نسخه)", parse_mode="md", buttons=[[Button.inline("🔙 رجوع", data="back")]])
+                await event.edit(f"📩 آخر كود للحساب {phone_number}: (`{code}`)\n\n(يمكنك نسخه)", parse_mode="md", buttons=[[Button.inline("🔙 رجوع", data="back")]])
             else:
                 await event.edit(f"⚠️ لم يتم العثور على كود للحساب {phone_number}.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
 

@@ -235,12 +235,12 @@ async def choose_account_to_clean(event):
 
     buttons = []
     for account in accounts:
-        buttons.append([Button.inline(f"🧹 {account['phone_number']}", data=f"clean_{account['phone_number']}")])
+        buttons.append([Button.inline(f"📱 {account['phone_number']}", data=f"clean_{account['phone_number']}")])
 
     buttons.append([Button.inline("🔙 رجوع", data="back")])
     await event.edit("اختر الحساب لتنظيف المحادثات:", buttons=buttons)
 
-# وظيفة تنظيف المحادثات لحساب معين
+# وظيفة تنظيف الحساب
 async def clean_account(event, phone_number):
     accounts = db.get("accounts")
     account = next((acc for acc in accounts if acc['phone_number'] == phone_number), None)
@@ -253,10 +253,18 @@ async def clean_account(event, phone_number):
     await app.connect()
 
     try:
+        await event.edit(f"🧹 جاري تنظيف المحادثات للحساب {phone_number}. العدد الحالي: 0")
+
+        count = 0
         async for dialog in app.iter_dialogs():
-            if dialog.is_user or dialog.is_group or dialog.is_channel:
-                await app.delete_dialog(dialog.id)
-        await event.edit(f"🧹 تم تنظيف المحادثات للحساب {phone_number}.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
+            await app(functions.messages.DeleteHistoryRequest(peer=dialog.id, max_id=0, just_clear=False, revoke=True))
+            count += 1
+            await event.edit(f"🧹 جاري تنظيف المحادثات للحساب {phone_number}. العدد الحالي: {count}")
+
+        await event.edit(f"✅ تم تنظيف جميع المحادثات للحساب {phone_number}. العدد الإجمالي: {count}", buttons=[[Button.inline("🔙 رجوع", data="back")]])
+
+    except Exception as e:
+        await event.edit(f"❌ حدث خطأ أثناء تنظيف المحادثات: {str(e)}", buttons=[[Button.inline("🔙 رجوع", data="back")]])
 
     finally:
         await app.disconnect()
@@ -270,12 +278,12 @@ async def choose_account_to_logout(event):
 
     buttons = []
     for account in accounts:
-        buttons.append([Button.inline(f"🚪 {account['phone_number']}", data=f"logout_{account['phone_number']}")])
+        buttons.append([Button.inline(f"📱 {account['phone_number']}", data=f"logout_{account['phone_number']}")])
 
     buttons.append([Button.inline("🔙 رجوع", data="back")])
     await event.edit("اختر الحساب لتسجيل الخروج:", buttons=buttons)
 
-# وظيفة تسجيل الخروج من حساب معين
+# وظيفة تسجيل الخروج من الحساب
 async def logout_account(event, phone_number):
     accounts = db.get("accounts")
     account = next((acc for acc in accounts if acc['phone_number'] == phone_number), None)
@@ -288,15 +296,18 @@ async def logout_account(event, phone_number):
     await app.connect()
 
     try:
-        await app.log_out()
+        await app(functions.auth.LogOutRequest())
         accounts.remove(account)
         db.set("accounts", accounts)
-        await event.edit(f"🚪 تم تسجيل الخروج من الحساب {phone_number}.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
+        await event.edit(f"✅ تم تسجيل الخروج من الحساب {phone_number} وحذفه من البوت.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
+
+    except Exception as e:
+        await event.edit(f"❌ حدث خطأ أثناء تسجيل الخروج: {str(e)}", buttons=[[Button.inline("🔙 رجوع", data="back")]])
 
     finally:
         await app.disconnect()
 
-# وظيفة اختيار الحساب لجلب معلوماته
+# وظيفة اختيار الحساب لجلب معلومات الحساب
 async def choose_account_to_get_info(event):
     accounts = db.get("accounts")
     if not accounts:
@@ -305,7 +316,7 @@ async def choose_account_to_get_info(event):
 
     buttons = []
     for account in accounts:
-        buttons.append([Button.inline(f"ℹ️ {account['phone_number']}", data=f"info_{account['phone_number']}")])
+        buttons.append([Button.inline(f"📱 {account['phone_number']}", data=f"info_{account['phone_number']}")])
 
     buttons.append([Button.inline("🔙 رجوع", data="back")])
     await event.edit("اختر الحساب لجلب المعلومات:", buttons=buttons)
@@ -323,23 +334,29 @@ async def get_account_info(event, phone_number):
     await app.connect()
 
     try:
+        await event.edit(f"⏳ جاري جلب معلومات الحساب {phone_number}...")
+
         me = await app.get_me()
-        if await app.is_user_authorized():
-            two_step_status = "مفعل" if await app(functions.account.GetPasswordRequest()) else "غير مفعل"
-            await event.edit(
-                f"ℹ️ معلومات الحساب {phone_number}:\n\n"
-                f"🆔 المعرف: {me.id}\n"
-                f"👤 الاسم: {me.first_name or ''} {me.last_name or ''}\n"
-                f"📧 البريد الإلكتروني: {me.username}\n"
-                f"🗝 التحقق بخطوتين: {two_step_status}",
-                buttons=[[Button.inline("🔙 رجوع", data="back")]]
-            )
-        else:
-            await event.edit(f"🚫 الحساب {phone_number} غير مسجل الدخول.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
+        devices = await app(functions.account.GetAuthorizationsRequest())
+        dialogs = await app.get_dialogs()
+        unread_count = sum(1 for dialog in dialogs if dialog.unread_count > 0)
+        blocked_users = await app(functions.contacts.GetBlockedRequest(offset=0, limit=100))
+
+        email_info = await app(functions.account.GetAccountTTLRequest())
+        email_bound = "نعم" if email_info.days > 0 else "لا"
+
+        await event.edit(f"ℹ️ معلومات الحساب {phone_number}:\n"
+                         f"👤 عدد الأجهزة المسجلة: {len(devices.authorizations)}\n"
+                         f"💬 عدد المحادثات: {len(dialogs)}\n"
+                         f"📨 عدد المحادثات غير المقروءة: {unread_count}\n"
+                         f"🚫 عدد المحظورين: {len(blocked_users.blocked)}\n"
+                         f"📧 هل الحساب مربوط ببريد Google: {email_bound}",
+                         buttons=[[Button.inline("🔙 رجوع", data="back")]])
+
+    except Exception as e:
+        await event.edit(f"❌ حدث خطأ أثناء جلب معلومات الحساب: {str(e)}", buttons=[[Button.inline("🔙 رجوع", data="back")]])
 
     finally:
         await app.disconnect()
 
-# بدء تشغيل البوت
-client.start()
 client.run_until_disconnected()

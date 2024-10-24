@@ -135,19 +135,14 @@ async def add_account(event):
             try:
                 await app.sign_in(phone_number, code)
             except SessionPasswordNeededError:
-                await conv.send_message("🔑 الحساب يحتوي على تحقق بخطوتين. من فضلك أرسل كلمة المرور:")
+                await conv.send_message("🔐 الحساب يحتوي على تحقق بخطوتين. من فضلك أرسل كلمة المرور:")
                 password_response = await conv.get_response()
                 password = password_response.text
-
-                try:
-                    await app.sign_in(password=password)
-                    two_step = "نعم"
-                except PasswordHashInvalidError:
-                    await conv.send_message("🚫 كلمة المرور غير صحيحة.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
-                    return
+                await app.sign_in(password=password)
 
             string_session = app.session.save()
-            data = {"phone_number": phone_number, "two-step": two_step if 'two_step' in locals() else "لا يوجد", "session": string_session}
+            two_step_status = "نعم" if isinstance(app, SessionPasswordNeededError) else "لا يوجد"
+            data = {"phone_number": phone_number, "two-step": two_step_status, "session": string_session}
             accounts.append(data)
             db.set("accounts", accounts)
 
@@ -224,7 +219,14 @@ async def restore_data(event):
             await conv.send_message("🚫 الملف غير صحيح، يرجى إرسال ملف JSON.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
             return
         
-        backup_file = 'backup/restore_data# وظيفة إضافة حساب جديد مع دعم التحقق بخطوتين
+        backup_file = 'backup/restore_data.json'
+        
+        if not os.path.isdir('backup'):
+            os.mkdir('backup')
+
+        await bot.download_media(response, backup_file)
+
+        with open(backup_file, 'r')# وظيفة إضافة حساب جديد
 async def add_account(event):
     async with bot.conversation(event.chat_id) as conv:
         await conv.send_message("✔️ من فضلك أرسل رقم هاتفك مع رمز الدولة (مثل: +201000000000):")
@@ -248,30 +250,26 @@ async def add_account(event):
             
             await app.sign_in(phone_number, code)
             
-            # التحقق من وجود تحقق بخطوتين
+            # التحقق من التحقق بخطوتين
             if await app.is_user_authorized():
-                string_session = app.session.save()
-                data = {"phone_number": phone_number, "two-step": "لا يوجد", "session": string_session}
-                accounts.append(data)
-                db.set("accounts", accounts)
-
-                await conv.send_message(f"✅ تم حفظ الحساب بنجاح!", buttons=build_main_buttons(len(accounts)))
+                two_step_status = "لا يوجد"
             else:
-                await conv.send_message("🔐 الحساب يحتوي على تحقق بخطوتين، من فضلك أرسل كلمة السر:")
+                await conv.send_message("🔐 الحساب محمي بتحقق بخطوتين، من فضلك أرسل كلمة المرور:")
                 password_response = await conv.get_response()
-                password = password_response.text
-
                 try:
-                    await app.sign_in(password=password)
-                    string_session = app.session.save()
-                    data = {"phone_number": phone_number, "two-step": password, "session": string_session}
-                    accounts.append(data)
-                    db.set("accounts", accounts)
-
-                    await conv.send_message(f"✅ تم حفظ الحساب بنجاح مع التحقق بخطوتين!", buttons=build_main_buttons(len(accounts)))
-
+                    await app.sign_in(password=password_response.text)
+                    two_step_status = password_response.text
                 except PasswordHashInvalidError:
-                    await conv.send_message("🚫 كلمة السر الخاصة بالتحقق بخطوتين غير صحيحة.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
+                    await conv.send_message("🚫 كلمة المرور المدخلة غير صحيحة.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
+                    await app.disconnect()
+                    return
+            
+            string_session = app.session.save()
+            data = {"phone_number": phone_number, "two-step": two_step_status, "session": string_session}
+            accounts.append(data)
+            db.set("accounts", accounts)
+
+            await conv.send_message(f"✅ تم حفظ الحساب بنجاح!", buttons=build_main_buttons(len(accounts)))
 
         except (ApiIdInvalidError, PhoneNumberInvalidError, PhoneCodeInvalidError, PhoneCodeExpiredError):
             await conv.send_message("🚫 حدث خطأ في إدخال البيانات. تأكد من الرقم والكود المدخل.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
@@ -279,7 +277,7 @@ async def add_account(event):
         finally:
             await app.disconnect()
 
-# تحديث وظيفة جلب معلومات الحساب لعرض التحقق بخطوتين
+# وظيفة جلب معلومات الحساب المعدلة
 async def get_account_info(event, phone_number):
     accounts = db.get("accounts")
     account = next((acc for acc in accounts if acc['phone_number'] == phone_number), None)
@@ -300,15 +298,17 @@ async def get_account_info(event, phone_number):
         unread_count = sum(1 for dialog in dialogs if dialog.unread_count > 0)
         blocked_users = await app(functions.contacts.GetBlockedRequest(offset=0, limit=100))
 
-        two_step = account['two-step']
+        # جلب معلومات التحقق بخطوتين
+        two_step_status = account['two-step'] if 'two-step' in account else "غير معروف"
 
         await event.edit(f"ℹ️ معلومات الحساب {phone_number}:\n"
                          f"👤 عدد الأجهزة المسجلة: {len(devices.authorizations)}\n"
                          f"💬 عدد المحادثات: {len(dialogs)}\n"
                          f"📨 عدد المحادثات غير المقروءة: {unread_count}\n"
                          f"🚫 عدد المحظورين: {len(blocked_users.blocked)}\n"
-                         f"🔐 كلمة السر للتحقق بخطوتين: `{two_step}`\n",
-                         parse_mode="md", buttons=[[Button.inline("🔙 رجوع", data="back")]])
+                         f"🔑 حالة التحقق بخطوتين: `{two_step_status}` (يمكنك نسخه)",
+                         parse_mode="md",
+                         buttons=[[Button.inline("🔙 رجوع", data="back")]])
 
     except Exception as e:
         await event.edit(f"❌ حدث خطأ أثناء جلب معلومات الحساب: {str(e)}", buttons=[[Button.inline("🔙 رجوع", data="back")]])

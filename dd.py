@@ -6,9 +6,9 @@ from telethon.sessions import StringSession
 from telethon.errors import SessionPasswordNeededError, PasswordHashInvalidError, ApiIdInvalidError, PhoneNumberInvalidError, PhoneCodeInvalidError, PhoneCodeExpiredError
 from telethon.tl import functions
 
-API_ID = "your_api_id"
-API_HASH = "your_api_hash"
-BOT_TOKEN = "your_bot_token"
+API_ID = "21669021"
+API_HASH = "bcdae25b210b2cbe27c03117328648a2"
+BOT_TOKEN = "7464446606:AAFb6FK5oAwLEiuDCftx2cA2jfSBPsyJjj8"
 
 client = TelegramClient("bot", API_ID, API_HASH).start(bot_token=BOT_TOKEN)
 

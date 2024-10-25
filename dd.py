@@ -41,7 +41,6 @@ async def start(event):
     ]
     await event.reply("👋 أهلاً بك! هذا البوت مخصص لإدارة حسابات تيليجرام. اختر من الأزرار أدناه:", buttons=buttons)
 
-
 @client.on(events.callbackquery.CallbackQuery())
 async def start_lis(event):
     data = event.data.decode('utf-8') if isinstance(event.data, bytes) else str(event.data)
@@ -56,6 +55,9 @@ async def start_lis(event):
             
             if any(account['phone_number'] == phone_number for account in accounts):
                 await x.send_message("- هذا الحساب تم إضافته مسبقًا.")
+                await asyncio.sleep(2)
+                await x.delete()
+                await start(event)
                 return
 
             app = TelegramClient(StringSession(), API_ID, API_HASH)
@@ -65,10 +67,17 @@ async def start_lis(event):
                 await app.send_code_request(phone_number)
             except (ApiIdInvalidError):
                 await x.send_message("ʏᴏᴜʀ **API_ID** ᴀɴᴅ **API_HASH** ɪs ɪɴᴠᴀʟɪᴅ.")
+                await asyncio.sleep(2)
+                await x.delete()
+                await start(event)
                 return
             except (PhoneNumberInvalidError):
                 await x.send_message("ᴛʜᴇ **ᴘʜᴏɴᴇ ɴᴜᴍʙᴇʀ** ʏᴏᴜ'ᴠᴇ sᴇɴᴛ ɪs ɪɴᴠᴀʟɪᴅ.")
+                await asyncio.sleep(2)
+                await x.delete()
+                await start(event)
                 return
+            
             await x.send_message("- تم ارسال كود التحقق الخاص بك علي تليجرام. أرسل الكود بالتنسيق التالي : 1 2 3 4 5")
             txt = await x.get_response()
             code = txt.text.replace(" ", "")
@@ -81,9 +90,15 @@ async def start_lis(event):
                 await x.send_message("- تم حفظ الحساب بنجاح ✅")
             except (PhoneCodeInvalidError):
                 await x.send_message("الكود المدخل غير صحيح.")
+                await asyncio.sleep(2)
+                await x.delete()
+                await start(event)
                 return
             except (PhoneCodeExpiredError):
                 await x.send_message("الكود المدخل منتهي الصلاحية.")
+                await asyncio.sleep(2)
+                await x.delete()
+                await start(event)
                 return
             except (SessionPasswordNeededError):
                 await x.send_message("- أرسل رمز التحقق بخطوتين الخاص بحسابك")
@@ -93,6 +108,9 @@ async def start_lis(event):
                     await app.sign_in(password=password)
                 except (PasswordHashInvalidError):
                     await x.send_message("رمز التحقق بخطوتين المدخل غير صحيح.")
+                    await asyncio.sleep(2)
+                    await x.delete()
+                    await start(event)
                     return
                 string_session = app.session.save()
                 data = {"phone_number": phone_number, "two-step": password, "session": string_session}
@@ -100,11 +118,18 @@ async def start_lis(event):
                 db.set("accounts", accounts)
                 await x.send_message("- تم حفظ الحساب بنجاح ✅")
 
+            await asyncio.sleep(2)
+            await x.delete()
+            await start(event)
+
     if data == "account_list":
         async with bot.conversation(event.chat_id) as x:
             acc = db.get("accounts")
             if len(acc) == 0:
                 await x.send_message("- لا يوجد حسابات مسجلة.")
+                await asyncio.sleep(2)
+                await x.delete()
+                await start(event)
                 return
 
             buttons = [[Button.inline(f"📱 {i['phone_number']}", data=f"account_{i['phone_number']}")] for i in acc]

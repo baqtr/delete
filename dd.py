@@ -1,282 +1,203 @@
 import os
 from telethon.tl import functions
-from telethon.sessions import StringSession
-import asyncio, json, shutil
-from kvsqlite.sync import Client as uu
-from telethon import TelegramClient, events, Button
-from telethon.errors import (
-    ApiIdInvalidError,
-    PhoneNumberInvalidError,
-    PhoneCodeInvalidError,
-    PhoneCodeExpiredError,
-    SessionPasswordNeededError,
-    PasswordHashInvalidError
-)
+try:
+    from telethon.sessions import StringSession
+    import asyncio, json, shutil
+    from kvsqlite.sync import Client as uu
+    from telethon import TelegramClient, events, Button
+    from telethon.tl.types import DocumentAttributeFilename
+    from telethon.errors import (
+        ApiIdInvalidError,
+        PhoneNumberInvalidError,
+        PhoneCodeInvalidError,
+        PhoneCodeExpiredError,
+        SessionPasswordNeededError,
+        PasswordHashInvalidError
+    )
+except:
+    os.system("pip install telethon kvsqlite")
+    try:
+        from telethon.sessions import StringSession
+        import asyncio, json, shutil
+        from kvsqlite.sync import Client as uu
+        from telethon import TelegramClient, events, Button
+        from telethon.tl.types import DocumentAttributeFilename
+        from telethon.errors import (
+            ApiIdInvalidError,
+            PhoneNumberInvalidError,
+            PhoneCodeInvalidError,
+            PhoneCodeExpiredError,
+            SessionPasswordNeededError,
+            PasswordHashInvalidError
+        )
+    except Exception as errors:
+        print('An Error with: ' + str(errors))
+        exit(0)
 
-# إعدادات البوت وقاعدة البيانات
+
 if not os.path.isdir('database'):
     os.mkdir('database')
 
 API_ID = "21669021"
 API_HASH = "bcdae25b210b2cbe27c03117328648a2"
 admin = 7013440973
-allowed_id = 7013440973  # استبدل هذا بمعرف المستخدم المسموح له
 token = "7464446606:AAFb6FK5oAwLEiuDCftx2cA2jfSBPsyJjj8"
 client = TelegramClient('BotSession', API_ID, API_HASH).start(bot_token=token)
 bot = client
 
-# قاعدة بيانات لحفظ الحسابات
+# Create DataBase
 db = uu('database/elhakem.ss', 'bot')
 
 if not db.exists("accounts"):
     db.set("accounts", [])
 
-# وظيفة لإعادة بناء الأزرار
-def build_main_buttons(account_count):
-    return [
-        [Button.inline(f"➕ إضافة حساب ({account_count})", data="add")],
-        [Button.inline(f"🔑 جلب آخر كود", data="get_code")],
-        [Button.inline("📦 نسخ احتياطي", data="backup")],
-        [Button.inline("📤 رفع نسخة احتياطية", data="restore")],
-        [Button.inline("👤 حساباتك", data="your_accounts")]
-    ]
 
-# رسالة الترحيب
 @client.on(events.NewMessage(pattern="/start", func=lambda x: x.is_private))
 async def start(event):
     user_id = event.chat_id
-    if user_id != allowed_id:  # فقط المستخدم المصرح له يمكنه استخدام البوت
-        await event.reply("🚫 ليس لديك الصلاحية لاستخدام هذا البوت.")
-        return
-
     accounts = db.get("accounts")
     account_count = len(accounts)
 
-    buttons = build_main_buttons(account_count)
-    await event.reply("👋 مرحبًا بك في بوت إدارة الحسابات.", buttons=buttons)
+    buttons = [
+        [Button.inline("➕ إضافة حساب", data="add")],
+        [Button.inline(f"📂 حساباتك ({account_count})", data="account_list")]
+    ]
+    await event.reply("👋 أهلاً بك! هذا البوت مخصص لإدارة حسابات تيليجرام. اختر من الأزرار أدناه:", buttons=buttons)
 
-# إدارة تفاعلات الأزرار
+
 @client.on(events.callbackquery.CallbackQuery())
 async def start_lis(event):
     data = event.data.decode('utf-8') if isinstance(event.data, bytes) else str(event.data)
     user_id = event.chat_id
 
-    if user_id != allowed_id:  # فقط المستخدم المصرح له يمكنه استخدام البوت
-        await event.reply("🚫 ليس لديك الصلاحية لاستخدام هذا البوت.")
-        return
+    if data == "add":
+        async with bot.conversation(event.chat_id) as x:
+            await x.send_message("✔️الان ارسل رقمك مع رمز دولتك , مثال :+201000000000")
+            txt = await x.get_response()
+            phone_number = txt.text.replace("+", "").replace(" ", "")
 
-    if data == "back" or data == "cancel":
-        accounts = db.get("accounts")
-        account_count = len(accounts)
-        buttons = build_main_buttons(account_count)
-        await event.edit("👋 مرحبًا بك في بوت إدارة الحسابات.", buttons=buttons)
+            accounts = db.get("accounts")
+            if any(account['phone_number'] == phone_number for account in accounts):
+                await x.send_message("- هذا الحساب تم إضافته مسبقًا.")
+                return
 
-    elif data == "add":
-        await add_account(event)
-
-    elif data == "get_code":
-        await get_code(event)
-
-    elif data == "backup":
-        await backup_data(event)
-
-    elif data == "restore":
-        await restore_data(event)
-
-    elif data == "your_accounts":
-        await show_accounts(event)
-
-    elif data.startswith("get_code_"):
-        phone_number = data.split("_", 2)[-1]
-        await fetch_code(event, phone_number)
-
-    elif data.startswith("clean_"):
-        phone_number = data.split("_", 2)[-1]
-        await clean_account(event, phone_number)
-
-    elif data.startswith("logout_"):
-        phone_number = data.split("_", 2)[-1]
-        await logout_account(event, phone_number)
-
-# وظيفة إضافة حساب جديد
-async def add_account(event):
-    async with bot.conversation(event.chat_id) as conv:
-        await conv.send_message("✔️ من فضلك أرسل رقم هاتفك مع رمز الدولة (مثل: +201000000000):")
-        response = await conv.get_response()
-        phone_number = response.text.replace("+", "").replace(" ", "")
-
-        # التحقق إذا كان الحساب مضافًا مسبقًا
-        accounts = db.get("accounts")
-        if any(account['phone_number'] == phone_number for account in accounts):
-            await conv.send_message("🚫 هذا الحساب تم إضافته مسبقًا.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
-            return
-
-        app = TelegramClient(StringSession(), API_ID, API_HASH)
-        await app.connect()
-
-        try:
-            await app.send_code_request(phone_number)
-            await conv.send_message("✔️ تم إرسال كود التحقق على تليجرام، من فضلك أرسل الكود (مثل: 12345):")
-            code_response = await conv.get_response()
-            code = code_response.text.replace(" ", "")
-            
+            app = TelegramClient(StringSession(), API_ID, API_HASH)
+            await app.connect()
+            password = None
             try:
-                await app.sign_in(phone_number, code)
-                two_step = False
-            except SessionPasswordNeededError:
-                await conv.send_message("🔑 الحساب يتطلب تحقق بخطوتين، من فضلك أرسل كلمة المرور:")
-                pw_response = await conv.get_response()
+                await app.send_code_request(phone_number)
+            except (ApiIdInvalidError):
+                await x.send_message("ʏᴏᴜʀ **API_ID** ᴀɴᴅ **API_HASH** ɪs ɪɴᴠᴀʟɪᴅ.")
+                return
+            except (PhoneNumberInvalidError):
+                await x.send_message("ᴛʜᴇ **ᴘʜᴏɴᴇ ɴᴜᴍʙᴇʀ** ʏᴏᴜ'ᴠᴇ sᴇɴᴛ ɪs ɪɴᴠᴀʟɪᴅ.")
+                return
+            await x.send_message("- تم ارسال كود التحقق الخاص بك علي تليجرام. أرسل الكود بالتنسيق التالي : 1 2 3 4 5")
+            txt = await x.get_response()
+            code = txt.text.replace(" ", "")
+            try:
+                await app.sign_in(phone_number, code, password=None)
+                string_session = app.session.save()
+                data = {"phone_number": phone_number, "two-step": "لا يوجد", "session": string_session}
+                accounts.append(data)
+                db.set("accounts", accounts)
+                await x.send_message("- تم حفظ الحساب بنجاح ✅")
+            except (PhoneCodeInvalidError):
+                await x.send_message("الكود المدخل غير صحيح.")
+                return
+            except (PhoneCodeExpiredError):
+                await x.send_message("الكود المدخل منتهي الصلاحية.")
+                return
+            except (SessionPasswordNeededError):
+                await x.send_message("- أرسل رمز التحقق بخطوتين الخاص بحسابك")
+                txt = await x.get_response()
+                password = txt.text
                 try:
-                    await app.sign_in(password=pw_response.text)
-                    two_step = True
-                except PasswordHashInvalidError:
-                    await conv.send_message("🚫 كلمة المرور غير صحيحة.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
+                    await app.sign_in(password=password)
+                except (PasswordHashInvalidError):
+                    await x.send_message("رمز التحقق بخطوتين المدخل غير صحيح.")
                     return
+                string_session = app.session.save()
+                data = {"phone_number": phone_number, "two-step": password, "session": string_session}
+                accounts.append(data)
+                db.set("accounts", accounts)
+                await x.send_message("- تم حفظ الحساب بنجاح ✅")
 
-            string_session = app.session.save()
-            data = {"phone_number": phone_number, "two_step": "نعم" if two_step else "لا", "session": string_session}
-            accounts.append(data)
-            db.set("accounts", accounts)
+    if data == "account_list":
+        async with bot.conversation(event.chat_id) as x:
+            acc = db.get("accounts")
+            if len(acc) == 0:
+                await x.send_message("- لا يوجد حسابات مسجلة.")
+                return
 
-            await conv.send_message(f"✅ تم حفظ الحساب بنجاح!", buttons=build_main_buttons(len(accounts)))
+            buttons = [[Button.inline(f"📱 {i['phone_number']}", data=f"account_{i['phone_number']}")] for i in acc]
+            await x.send_message("- اختر الحساب للتحكم فيه:", buttons=buttons)
 
-        except (ApiIdInvalidError, PhoneNumberInvalidError, PhoneCodeInvalidError, PhoneCodeExpiredError):
-            await conv.send_message("🚫 حدث خطأ في إدخال البيانات. تأكد من الرقم والكود المدخل.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
+    if data.startswith("account_"):
+        phone_number = data.split("_")[1]
+        acc = db.get("accounts")
+        for i in acc:
+            if phone_number == i['phone_number']:
+                app = TelegramClient(StringSession(i['session']), API_ID, API_HASH)
+                await app.connect()
 
-        finally:
-            await app.disconnect()
+                me = await app.get_me()
+                sessions = await app(functions.account.GetAuthorizationsRequest())
+                device_count = len(sessions.authorizations)
 
-# وظيفة جلب الكود
-async def get_code(event):
-    accounts = db.get("accounts")
-    if not accounts:
-        await event.edit("🚫 لا توجد حسابات مضافة.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
-        return
+                text = f"• رقم الهاتف : {phone_number}\n" \
+                       f"- الاسم : {me.first_name} {me.last_name or ''}\n" \
+                       f"- عدد الاجهزة المتصلة : {device_count}\n" \
+                       f"- التحقق بخطوتين : {i['two-step']}\n" \
+                       f"- الجلسة : `{i['session']}`"
 
-    buttons = []
-    for account in accounts:
-        buttons.append([Button.inline(f"📱 {account['phone_number']}", data=f"get_code_{account['phone_number']}")])
+                buttons = [
+                    [Button.inline("🧹 تنظيف المحادثات", data=f"clean_{phone_number}")],
+                    [Button.inline("🔒 تسجيل خروج", data=f"logout_{phone_number}")],
+                    [Button.inline("📩 جلب الكود", data=f"code_{phone_number}")]
+                ]
+                await event.edit(text, buttons=buttons)
+                await app.disconnect()
 
-    buttons.append([Button.inline("🔙 رجوع", data="back")])
-    await event.edit("اختر الحساب لجلب آخر كود:", buttons=buttons)
+    if data.startswith("clean_"):
+        phone_number = data.split("_")[1]
+        acc = db.get("accounts")
+        for i in acc:
+            if phone_number == i['phone_number']:
+                app = TelegramClient(StringSession(i['session']), API_ID, API_HASH)
+                await app.connect()
 
-# وظيفة استخراج آخر كود لحساب معين
-async def fetch_code(event, phone_number):
-    accounts = db.get("accounts")
-    account = next((acc for acc in accounts if acc['phone_number'] == phone_number), None)
+                async for dialog in app.iter_dialogs():
+                    await app.delete_dialog(dialog.id)
+                    await event.edit(f"جاري تنظيف المحادثات، المحادثة {dialog.id} تم حذفها.")
+                await event.edit("- تم تنظيف جميع المحادثات بنجاح ✅")
 
-    if not account:
-        await event.edit("🚫 الحساب غير موجود.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
-        return
+                await app.disconnect()
 
-    app = TelegramClient(StringSession(account['session']), API_ID, API_HASH)
-    await app.connect()
+    if data.startswith("logout_"):
+        phone_number = data.split("_")[1]
+        acc = db.get("accounts")
+        for i in acc:
+            if phone_number == i['phone_number']:
+                app = TelegramClient(StringSession(i['session']), API_ID, API_HASH)
+                await app.connect()
+                await app.log_out()
+                await app.disconnect()
 
-    try:
-        async for message in app.iter_messages(777000, limit=1):
-            if message.text:
-                # استخراج فقط الكود من الرسالة
-                code = ''.join(filter(str.isdigit, message.text))
-                await event.edit(f"📩 آخر كود للحساب {phone_number}: (`{code}`)\n\n(يمكنك نسخه)", parse_mode="md", buttons=[[Button.inline("🔙 رجوع", data="back")]])
-            else:
-                await event.edit(f"⚠️ لم يتم العثور على كود للحساب {phone_number}.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
+                acc.remove(i)
+                db.set("accounts", acc)
 
-    finally:
-        await app.disconnect()
+                await event.edit(f"- تم تسجيل الخروج من الحساب: {phone_number}")
 
-# وظيفة النسخ الاحتياطي
-async def backup_data(event):
-    backup_file = 'backup/backup_data.json'
-    
-    if not os.path.isdir('backup'):
-        os.mkdir('backup')
-    
-    data = {
-        "accounts": db.get("accounts")
-    }
+    if data.startswith("code_"):
+        phone_number = data.split("_")[1]
+        acc = db.get("accounts")
+        for i in acc:
+            if phone_number == i['phone_number']:
+                app = TelegramClient(StringSession(i['session']), API_ID, API_HASH)
+                await app.connect()
+                code = await app.get_messages(777000, limit=1)
+                await event.edit(f"اخر كود تم استلامه: {code[0].message}")
+                await app.disconnect()
 
-    with open(backup_file, 'w') as f:
-        json.dump(data, f)
-
-    await bot.send_file(event.chat_id, backup_file, caption="📦 النسخة الاحتياطية تم إنشاؤها بنجاح.")
-    shutil.rmtree('backup')
-
-# وظيفة استعادة النسخة الاحتياطية
-async def restore_data(event):
-    async with bot.conversation(event.chat_id) as conv:
-        await conv.send_message("📤 من فضلك أرسل ملف النسخة الاحتياطية:")
-        response = await conv.get_response()
-        
-        if not response.file or not response.file.name.endswith('.json'):
-            await conv.send_message("🚫 الملف غير صحيح، يرجى إرسال ملف JSON.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
-            return
-        
-        backup_file = 'backup/restore_data.json'
-        
-        if not os.path.isdir('backup'):
-            os.mkdir('backup')
-
-        await bot.download_media(response, backup_file)
-
-        with open(backup_file, 'r') as f:
-            data = json.load(f)
-
-        db.set("accounts", data.get("accounts", []))
-
-        await conv.send_message("✅ تم استعادة البيانات بنجاح.", buttons=build_main_buttons(len(data.get("accounts", []))))
-        shutil.rmtree('backup')
-
-# وظيفة عرض الحسابات
-async def show_accounts(event):
-    accounts = db.get("accounts")
-    if not accounts:
-        await event.edit("🚫 لا توجد حسابات مضافة.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
-        return
-
-    buttons = []
-    for account in accounts:
-        buttons.append([Button.inline(f"📱 {account['phone_number']}", data=f"manage_{account['phone_number']}")])
-
-    buttons.append([Button.inline("🔙 رجوع", data="back")])
-    await event.edit("اختر الحساب لإدارته:", buttons=buttons)
-
-# إدارة حساب محدد
-@client.on(events.callbackquery.CallbackQuery())
-async def manage_account(event):
-    data = event.data.decode('utf-8') if isinstance(event.data, bytes) else str(event.data)
-    phone_number = data.split("_", 2)[-1]
-    
-    account = next((acc for acc in db.get("accounts") if acc['phone_number'] == phone_number), None)
-    if not account:
-        await event.edit("🚫 الحساب غير موجود.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
-        return
-
-    app = TelegramClient(StringSession(account['session']), API_ID, API_HASH)
-    await app.connect()
-    
-    try:
-        devices = await app(functions.account.GetAuthorizationsRequest())
-        two_step_status = "مفعل" if await app(functions.account.GetPasswordRequest()) else "غير مفعل"
-
-        buttons = [
-            [Button.inline("🧹 تنظيف الحساب", data=f"clean_{phone_number}")],
-            [Button.inline("🚪 تسجيل الخروج", data=f"logout_{phone_number}")],
-            [Button.inline("🔑 جلب آخر كود", data=f"get_code_{phone_number}")],
-            [Button.inline("🔙 رجوع", data="back")]
-        ]
-
-        await event.edit(
-            f"ℹ️ معلومات الحساب {phone_number}:\n"
-            f"🔐 التحقق بخطوتين: {two_step_status}\n"
-            f"💻 الأجهزة المتصلة: {len(devices.authorizations)}",
-            buttons=buttons
-        )
-
-    except Exception as e:
-        await event.edit(f"❌ حدث خطأ أثناء جلب معلومات الحساب: {str(e)}", buttons=[[Button.inline("🔙 رجوع", data="back")]])
-    
-    finally:
-        await app.disconnect()
-
-# بدء البوت
 client.run_until_disconnected()

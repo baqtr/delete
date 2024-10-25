@@ -1,10 +1,9 @@
 import os
 from telethon.tl import functions
 from telethon.sessions import StringSession
-import asyncio, json, shutil
+import asyncio, json
 from kvsqlite.sync import Client as uu
 from telethon import TelegramClient, events, Button
-from telethon.tl.types import DocumentAttributeFilename
 from telethon.errors import (
     ApiIdInvalidError,
     PhoneNumberInvalidError,
@@ -133,6 +132,7 @@ async def start_lis(event):
             return
 
         buttons = [[Button.inline(f"📱 {i['phone_number']}", data=f"account_{i['phone_number']}")] for i in acc]
+        buttons.append([Button.inline("⬅️ رجوع", data="back")])
         await event.edit("- اختر الحساب للتحكم فيه:", buttons=buttons)
 
     if data.startswith("account_"):
@@ -154,29 +154,23 @@ async def start_lis(event):
                        f"- الجلسة : `{i['session']}`"
 
                 buttons = [
-                    [Button.inline("🧹 تنظيف المحادثات", data=f"clean_{phone_number}")],
+                    [Button.inline("🔄 تحديث الجلسة", data=f"refresh_{phone_number}")],
                     [Button.inline("🔒 تسجيل خروج", data=f"logout_{phone_number}")],
-                    [Button.inline("📩 جلب الكود", data=f"code_{phone_number}")]
+                    [Button.inline("📩 جلب الكود", data=f"code_{phone_number}")],
+                    [Button.inline("⬅️ رجوع", data="account_list")]
                 ]
                 await event.edit(text, buttons=buttons)
                 await app.disconnect()
 
-    if data.startswith("clean_"):
+    if data.startswith("refresh_"):
         phone_number = data.split("_")[1]
         acc = db.get("accounts")
         for i in acc:
             if phone_number == i['phone_number']:
                 app = TelegramClient(StringSession(i['session']), API_ID, API_HASH)
                 await app.connect()
-
-                deleted_count = 0
-                async for dialog in app.iter_dialogs():
-                    await app.delete_dialog(dialog.id)
-                    deleted_count += 1
-                    await event.edit(f"جاري الحذف، العدد الحالي: {deleted_count}")
-
-                await event.edit("- تم تنظيف جميع المحادثات بنجاح ✅")
-
+                me = await app.get_me()
+                await event.edit(f"تم تحديث بيانات الحساب:\n\n- الاسم: {me.first_name} {me.last_name or ''}")
                 await app.disconnect()
 
     if data.startswith("logout_"):
@@ -205,7 +199,10 @@ async def start_lis(event):
                 app = TelegramClient(StringSession(i['session']), API_ID, API_HASH)
                 await app.connect()
                 code = await app.get_messages(777000, limit=1)
-                await event.edit(f"اخر كود تم استلامه: {code[0].message}")
+                await event.edit(f"اخر كود تم استلامه: {code[0].message}", buttons=[[Button.inline("⬅️ رجوع", data=f"account_{phone_number}")]])
                 await app.disconnect()
+
+    if data == "back":
+        await start(event)
 
 client.run_until_disconnected()

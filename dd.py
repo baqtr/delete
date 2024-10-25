@@ -39,7 +39,7 @@ async def start(event):
         [Button.inline("➕ إضافة حساب", data="add")],
         [Button.inline(f"📂 حساباتك ({account_count})", data="account_list")]
     ]
-    await event.reply("👋 أهلاً بك! هذا البوت مخصص لإدارة حسابات تيليجرام. اختر من الأزرار أدناه:", buttons=buttons)
+    await event.respond("👋 أهلاً بك! هذا البوت مخصص لإدارة حسابات تيليجرام. اختر من الأزرار أدناه:", buttons=buttons)
 
 @client.on(events.callbackquery.CallbackQuery())
 async def start_lis(event):
@@ -54,9 +54,9 @@ async def start_lis(event):
             accounts = db.get("accounts")
             
             if any(account['phone_number'] == phone_number for account in accounts):
-                await x.send_message("- هذا الحساب تم إضافته مسبقًا.")
+                await event.edit("- هذا الحساب تم إضافته مسبقًا.")
                 await asyncio.sleep(2)
-                await x.delete()
+                await event.delete()
                 await start(event)
                 return
 
@@ -66,19 +66,19 @@ async def start_lis(event):
             try:
                 await app.send_code_request(phone_number)
             except (ApiIdInvalidError):
-                await x.send_message("ʏᴏᴜʀ **API_ID** ᴀɴᴅ **API_HASH** ɪs ɪɴᴠᴀʟɪᴅ.")
+                await event.edit("ʏᴏᴜʀ **API_ID** ᴀɴᴅ **API_HASH** ɪs ɪɴᴠᴀʟɪᴅ.")
                 await asyncio.sleep(2)
-                await x.delete()
+                await event.delete()
                 await start(event)
                 return
             except (PhoneNumberInvalidError):
-                await x.send_message("ᴛʜᴇ **ᴘʜᴏɴᴇ ɴᴜᴍʙᴇʀ** ʏᴏᴜ'ᴠᴇ sᴇɴᴛ ɪs ɪɴᴠᴀʟɪᴅ.")
+                await event.edit("ᴛʜᴇ **ᴘʜᴏɴᴇ ɴᴜᴍʙᴇʀ** ʏᴏᴜ'ᴠᴇ sᴇɴᴛ ɪs ɪɴᴠᴀʟɪᴅ.")
                 await asyncio.sleep(2)
-                await x.delete()
+                await event.delete()
                 await start(event)
                 return
             
-            await x.send_message("- تم ارسال كود التحقق الخاص بك علي تليجرام. أرسل الكود بالتنسيق التالي : 1 2 3 4 5")
+            await event.edit("- تم ارسال كود التحقق الخاص بك علي تليجرام. أرسل الكود بالتنسيق التالي : 1 2 3 4 5")
             txt = await x.get_response()
             code = txt.text.replace(" ", "")
             try:
@@ -87,53 +87,52 @@ async def start_lis(event):
                 data = {"phone_number": phone_number, "two-step": "لا يوجد", "session": string_session}
                 accounts.append(data)
                 db.set("accounts", accounts)
-                await x.send_message("- تم حفظ الحساب بنجاح ✅")
+                await event.edit("- تم حفظ الحساب بنجاح ✅")
             except (PhoneCodeInvalidError):
-                await x.send_message("الكود المدخل غير صحيح.")
+                await event.edit("الكود المدخل غير صحيح.")
                 await asyncio.sleep(2)
-                await x.delete()
+                await event.delete()
                 await start(event)
                 return
             except (PhoneCodeExpiredError):
-                await x.send_message("الكود المدخل منتهي الصلاحية.")
+                await event.edit("الكود المدخل منتهي الصلاحية.")
                 await asyncio.sleep(2)
-                await x.delete()
+                await event.delete()
                 await start(event)
                 return
             except (SessionPasswordNeededError):
-                await x.send_message("- أرسل رمز التحقق بخطوتين الخاص بحسابك")
+                await event.edit("- أرسل رمز التحقق بخطوتين الخاص بحسابك")
                 txt = await x.get_response()
                 password = txt.text
                 try:
                     await app.sign_in(password=password)
                 except (PasswordHashInvalidError):
-                    await x.send_message("رمز التحقق بخطوتين المدخل غير صحيح.")
+                    await event.edit("رمز التحقق بخطوتين المدخل غير صحيح.")
                     await asyncio.sleep(2)
-                    await x.delete()
+                    await event.delete()
                     await start(event)
                     return
                 string_session = app.session.save()
                 data = {"phone_number": phone_number, "two-step": password, "session": string_session}
                 accounts.append(data)
                 db.set("accounts", accounts)
-                await x.send_message("- تم حفظ الحساب بنجاح ✅")
+                await event.edit("- تم حفظ الحساب بنجاح ✅")
 
             await asyncio.sleep(2)
-            await x.delete()
+            await event.delete()
             await start(event)
 
     if data == "account_list":
-        async with bot.conversation(event.chat_id) as x:
-            acc = db.get("accounts")
-            if len(acc) == 0:
-                await x.send_message("- لا يوجد حسابات مسجلة.")
-                await asyncio.sleep(2)
-                await x.delete()
-                await start(event)
-                return
+        acc = db.get("accounts")
+        if len(acc) == 0:
+            await event.edit("- لا يوجد حسابات مسجلة.")
+            await asyncio.sleep(2)
+            await event.delete()
+            await start(event)
+            return
 
-            buttons = [[Button.inline(f"📱 {i['phone_number']}", data=f"account_{i['phone_number']}")] for i in acc]
-            await x.send_message("- اختر الحساب للتحكم فيه:", buttons=buttons)
+        buttons = [[Button.inline(f"📱 {i['phone_number']}", data=f"account_{i['phone_number']}")] for i in acc]
+        await event.edit("- اختر الحساب للتحكم فيه:", buttons=buttons)
 
     if data.startswith("account_"):
         phone_number = data.split("_")[1]
@@ -193,6 +192,9 @@ async def start_lis(event):
                 db.set("accounts", acc)
 
                 await event.edit(f"- تم تسجيل الخروج من الحساب: {phone_number}")
+                await asyncio.sleep(2)
+                await event.delete()
+                await start(event)
 
     if data.startswith("code_"):
         phone_number = data.split("_")[1]

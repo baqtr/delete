@@ -12,7 +12,7 @@ import time
 
 TOKEN = '7464446606:AAFb6FK5oAwLEiuDCftx2cA2jfSBPsyJjj8' #توكنك 
 ADMIN_ID = 7013440973  # ايديك
-channel = '@xx44g' #يوزر قناتك هنا مش الرابط
+channel = '@Storagebotbr' #يوزر قناتك هنا مش الرابط
 # 🗿سنكر لا تسرق @M1telegramM1
 
 
@@ -51,7 +51,7 @@ def send_welcome(message):
 
     markup = types.InlineKeyboardMarkup()
     upload_button = types.InlineKeyboardButton('📤 رفع ملف', callback_data='upload')
-    dev_channel_button = types.InlineKeyboardButton('🔧 قناة المطور', url='https://t.me/M1telegramM1')
+    dev_channel_button = types.InlineKeyboardButton('🔧 قناة المطور', url='@xx44g')
     speed_button = types.InlineKeyboardButton('⚡ سرعة البوت', callback_data='speed')
     markup.add(upload_button)
     markup.add(speed_button, dev_channel_button)

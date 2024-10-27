@@ -10,7 +10,7 @@ import logging
 from telebot import types
 import time
 
-TOKEN = '7464446606:AAFb6FK5oAwLEiuDCftx2cA2jfSBPsyJjj8' #توكنك 
+TOKEN = '7464446606:AAGMBGDFt1KRIzxxdEKZApfeOibJF18ZEc0' #توكنك 
 ADMIN_ID = 7013440973  # ايديك
 channel = '@Storagebotbr' #يوزر قناتك هنا مش الرابط
 # 🗿سنكر لا تسرق @M1telegramM1

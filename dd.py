@@ -1,193 +1,138 @@
-import os
-from telethon.tl import functions
+import nest_asyncio
+import re
+import asyncio
+from telethon import TelegramClient, events
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters
 from telethon.sessions import StringSession
-import asyncio, json, shutil
-from kvsqlite.sync import Client as uu
-from telethon import TelegramClient, events, Button
-from telethon.tl.types import DocumentAttributeFilename
-from telethon.errors import (
-    ApiIdInvalidError,
-    PhoneNumberInvalidError,
-    PhoneCodeInvalidError,
-    PhoneCodeExpiredError,
-    SessionPasswordNeededError,
-    PasswordHashInvalidError
-)
 
-if not os.path.isdir('database'):
-    os.mkdir('database')
+# إعداد nest_asyncio لتجنب مشاكل الحلقة
+nest_asyncio.apply()
 
-API_ID = "21669021"
-API_HASH = "bcdae25b210b2cbe27c03117328648a2"
-admin = 7013440973
-token = "7464446606:AAFb6FK5oAwLEiuDCftx2cA2jfSBPsyJjj8"
-client = TelegramClient('BotSession', API_ID, API_HASH).start(bot_token=token)
-bot = client
+# إعدادات تيليثون
+api_id = 22377281  # API ID الخاص بك
+api_hash = '7882457407a0b7e0fe71984064fbe6d7'  # API Hash الخاص بك
 
-# Create DataBase
-db = uu('database/elhakem.ss', 'bot')
+# معلومات بوت التلجرام
+bot_token = '7924484400:AAFy7EXN-bBbzyElloNL7Y3uGU_E1rnuttM'
 
-if not db.exists("accounts"):
-    db.set("accounts", [])
+# إعداد الجلسة
+session_string = None
+client = None
 
+# متغيرات لتخزين الرقم ووقت آخر رسالة
+number = ''
+message_interval = 600  # 600 ثانية = 10 دقائق
 
-@client.on(events.NewMessage(pattern="/start", func=lambda x: x.is_private))
-async def start(event):
-    user_id = event.chat_id
-
-    if user_id != admin:
-        buttons = [[Button.inline("➕ إضافة حساب", data="add")]]
-        await event.reply("👋 أهلاً بك عزيزي! هذا البوت مخصص لتخزين حسابات تيليجرام ويمكنك استرجاعها في أي وقت.", buttons=buttons)
-        return
-
-    accounts = db.get("accounts")
-    account_count = len(accounts)
-    buttons = [
-        [Button.inline("➕ إضافة حساب", data="add")],
-        [Button.inline(f"📲 حساباتك ({account_count})", data="your_accounts")]
+async def start(update: Update, context) -> None:
+    keyboard = [
+        [InlineKeyboardButton("تسجيل", callback_data='register')],
+        [InlineKeyboardButton("ارسال الرسائل", callback_data='send_message')]
     ]
-    await event.reply("👋 مرحبًا بك في بوت إدارة الحسابات، اختر من الأزرار أدناه ما تود فعله.", buttons=buttons)
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await update.message.reply_text('اختر خيار:', reply_markup=reply_markup)
 
+async def button_handler(update: Update, context) -> None:
+    query = update.callback_query
+    await query.answer()
+    
+    if query.data == 'register':
+        await query.message.reply_text('من فضلك أرسل الجلسة الخاصة بك.')
+        context.user_data['action'] = 'register'
+    
+    elif query.data == 'send_message':
+        # التحقق من تسجيل الجلسة
+        if client is None or not await client.is_user_authorized():
+            await query.message.reply_text('يجب تسجيل الدخول أولاً. من فضلك أرسل الجلسة الخاصة بك.')
+            context.user_data['action'] = 'register'
+        else:
+            await query.message.reply_text('أرسل لي اسم مستخدم الشخص الذي تريد إرسال رسالة إليه.')
+            context.user_data['action'] = 'send_message'
 
-@client.on(events.callbackquery.CallbackQuery())
-async def start_lis(event):
-    data = event.data.decode('utf-8') if isinstance(event.data, bytes) else str(event.data)
-    user_id = event.chat_id
-    accounts = db.get("accounts")
-    account_count = len(accounts)
-    main_buttons = [
-        [Button.inline("➕ إضافة حساب", data="add")],
-        [Button.inline(f"📲 حساباتك ({account_count})", data="your_accounts")]
-    ]
+async def message_handler(update: Update, context) -> None:
+    global client
+    action = context.user_data.get('action')
+    
+    if action == 'register':
+        session_string = update.message.text
+        try:
+            client = TelegramClient(StringSession(session_string), api_id, api_hash)
+            await client.connect()
+            if not await client.is_user_authorized():
+                await update.message.reply_text('فشل تسجيل الدخول. الجلسة غير صحيحة.')
+            else:
+                await update.message.reply_text('تم تسجيل الدخول بنجاح.')
+        except Exception as e:
+            await update.message.reply_text(f'حدث خطأ: {str(e)}')
 
-    if data == "back":
-        await event.edit("👋 مرحبًا بك في بوت إدارة الحسابات، اختر من الأزرار أدناه ما تود فعله.", buttons=main_buttons)
+    elif action == 'send_message':
+        username = update.message.text
+        context.user_data['username'] = username
+        await update.message.reply_text(f'سيتم إرسال الرسائل تلقائيًا إلى {username}.')
 
-    if data == "add":
-        async with bot.conversation(event.chat_id) as x:
-            await x.send_message("✔️الان ارسل رقمك مع رمز دولتك , مثال :+201000000000")
-            txt = await x.get_response()
-            phone_number = txt.text.replace("+", "").replace(" ", "")
+        # تشغيل العملية التلقائية لإرسال الرسائل
+        await send_automatic_messages(username)
 
-            # Check if the account already exists
-            if any(account['phone_number'] == phone_number for account in accounts):
-                await x.send_message("- هذا الحساب تم إضافته مسبقًا.")
-                return
+async def send_automatic_messages(username):
+    global client
 
-            app = TelegramClient(StringSession(), API_ID, API_HASH)
-            await app.connect()
-            password = None
-            try:
-                await app.send_code_request(phone_number)
-            except ApiIdInvalidError:
-                await x.send_message("ʏᴏᴜʀ **API_ID** ᴀɴᴅ **API_HASH** ɪs ɪɴᴠᴀʟɪᴅ.")
-                return
-            except PhoneNumberInvalidError:
-                await x.send_message("ᴛʜᴇ **ᴘʜᴏɴᴇ ɴᴜᴍʙᴇʀ** ʏᴏᴜ'ᴠᴇ sᴇɴᴛ ɪs ɪɴᴠᴀʟɪᴅ.")
-                return
-            await x.send_message("- تم ارسال كود التحقق الخاص بك علي تليجرام. أرسل الكود بالتنسيق التالي : 1 2 3 4 5")
-            txt = await x.get_response()
-            code = txt.text.replace(" ", "")
-            try:
-                await app.sign_in(phone_number, code, password=None)
-                string_session = app.session.save()
-                data = {"phone_number": phone_number, "two-step": "لا يوجد", "session": string_session}
-                accounts.append(data)
-                db.set("accounts", accounts)
-                await x.send_message("- تم حفظ الحساب بنجاح ✅", buttons=[[Button.inline("🔙 رجوع", data="back")]])
-            except PhoneCodeInvalidError:
-                await x.send_message("الكود المدخل غير صحيح.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
-                return
-            except PhoneCodeExpiredError:
-                await x.send_message("الكود المدخل منتهي الصلاحية.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
-                return
-            except SessionPasswordNeededError:
-                await x.send_message("- أرسل رمز التحقق بخطوتين الخاص بحسابك")
-                txt = await x.get_response()
-                password = txt.text
-                try:
-                    await app.sign_in(password=password)
-                except PasswordHashInvalidError:
-                    await x.send_message("رمز التحقق بخطوتين المدخل غير صحيح.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
-                    return
-                string_session = app.session.save()
-                data = {"phone_number": phone_number, "two-step": password, "session": string_session}
-                accounts.append(data)
-                db.set("accounts", accounts)
-                await x.send_message("- تم حفظ الحساب بنجاح ✅", buttons=[[Button.inline("🔙 رجوع", data="back")]])
+    recipient = username  # المرسل إليه
+    notification_recipient = '@Mt_9u'  # حساب تيليجرام لإرسال الوقت المتبقي
 
-    if data == "your_accounts":
-        if len(accounts) == 0:
-            await event.edit("- لا يوجد حسابات مسجلة.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
-            return
+    try:
+        while True:
+            # إرسال الرسائل كل 10 دقائق
+            await send_messages(recipient)
 
-        account_buttons = [[Button.inline(f"📱 {i['phone_number']}", data=f"get_{i['phone_number']}")] for i in accounts]
-        account_buttons.append([Button.inline("🔙 رجوع", data="back")])
-        await event.edit("- اختر الحساب لإدارة الخيارات:", buttons=account_buttons)
+            # بدء العد التنازلي
+            remaining_time = message_interval
+            while remaining_time > 0:
+                # إرسال الوقت المتبقي إلى الحساب المحدد
+                await client.send_message(notification_recipient, f'الوقت المتبقي للنشر مرة أخرى: {remaining_time} ثانية')
+                await asyncio.sleep(10)  # الانتظار 10 ثوانٍ
+                remaining_time -= 10
 
-    if data.startswith("get_"):
-        phone_number = data.split("_")[1]
-        for i in accounts:
-            if phone_number == i['phone_number']:
-                app = TelegramClient(StringSession(i['session']), API_ID, API_HASH)
-                await app.connect()
+    except Exception as e:
+        # في حالة التوقف، إرسال رسالة "تم توقف البوت"
+        await client.send_message(notification_recipient, f"تم توقف البوت بسبب: {str(e)}")
 
-                # Get account info (name and number of devices)
-                me = await app.get_me()
-                sessions = await app(functions.account.GetAuthorizationsRequest())
-                device_count = len(sessions.authorizations)
+async def send_messages(recipient):
+    global client, number
 
-                text = f"• رقم الهاتف : {phone_number}\n" \
-                       f"- الاسم : {me.first_name} {me.last_name or ''}\n" \
-                       f"- عدد الاجهزة المتصلة : {device_count}\n" \
-                       f"- التحقق بخطوتين : {i['two-step']}"
+    # إرسال الرسائل المطلوبة
+    await client.send_message(recipient, 'راتب')
+    await asyncio.sleep(2)
+    await client.send_message(recipient, 'بخشيش')
+    await asyncio.sleep(2)
+    
+    # إرسال فلوسي وانتظار الرد الذي يحتوي على الرقم
+    await client.send_message(recipient, 'فلوسي')
 
-                account_action_buttons = [
-                    [Button.inline("🔒 تسجيل خروج", data=f"logout_{phone_number}")],
-                    [Button.inline("🧹 حذف المحادثات", data=f"delete_chats_{phone_number}")],
-                    [Button.inline("📩 جلب اخر كود", data=f"code_{phone_number}")],
-                    [Button.inline("🔙 رجوع", data="your_accounts")]
-                ]
-                await event.edit(text, buttons=account_action_buttons)
-                await app.disconnect()
+    # انتظار الرد من الشخص
+    @client.on(events.NewMessage(chats=recipient))
+    async def handler(event):
+        message = event.message.message
 
-    if data.startswith("logout_"):
-        phone_number = data.split("_")[1]
-        for i in accounts:
-            if phone_number == i['phone_number']:
-                app = TelegramClient(StringSession(i['session']), API_ID, API_HASH)
-                await app.connect()
-                await app.log_out()
-                await app.disconnect()
+        # التحقق من وجود الرسالة التي تحتوي على "فلوسك" ونسخ الرقم
+        match = re.search(r'فلوسك (\d+) ريال', message)
+        if match:
+            number = match.group(1)
+            # إرسال الرسالة "استثمار" مع الرقم
+            await client.send_message(recipient, f'استثمار {number}')
 
-                accounts.remove(i)
-                db.set("accounts", accounts)
-                await event.edit(f"- تم تسجيل الخروج من الحساب: {phone_number}", buttons=[[Button.inline("🔙رجوع", data="your_accounts")]])
+        # إلغاء المعالجة بعد نسخ الرقم
+        await client.remove_event_handler(handler)
 
-    if data.startswith("code_"):
-        phone_number = data.split("_")[1]
-        for i in accounts:
-            if phone_number == i['phone_number']:
-                app = TelegramClient(StringSession(i['session']), API_ID, API_HASH)
-                await app.connect()
-                code = await app.get_messages(777000, limit=1)
-                await event.edit(f"اخر كود تم استلامه: {code[0].message}", buttons=[[Button.inline("🔙 رجوع", data="your_accounts")]])
-                await app.disconnect()
+# تشغيل البرنامج الرئيسي
+async def main() -> None:
+    application = Application.builder().token(bot_token).build()
+    
+    application.add_handler(CommandHandler('start', start))
+    application.add_handler(CallbackQueryHandler(button_handler))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, message_handler))
+    
+    await application.run_polling()
 
-    if data.startswith("delete_chats_"):
-        phone_number = data.split("_")[2]
-        for i in accounts:
-            if phone_number == i['phone_number']:
-                app = TelegramClient(StringSession(i['session']), API_ID, API_HASH)
-                await app.connect()
-                
-                total_deleted = 0
-                async for dialog in app.iter_dialogs():
-                    await app.delete_dialog(dialog.id)
-                    total_deleted += 1
-                    await event.edit(f"جاري الحذف وصل الحذف حته الان ({total_deleted})")
-                
-                await app.disconnect()
-                await event.edit(f"✅ تم حذف جميع المحادثات للحساب: {phone_number}", buttons=[[Button.inline("🔙 رجوع", data="your_accounts")]])
-
-client.run_until_disconnected()
+if __name__ == '__main__':
+    import asyncio
+    asyncio.run(main())

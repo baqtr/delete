@@ -10,52 +10,51 @@ import logging
 from telebot import types
 import time
 
-TOKEN = '7464446606:AAGMBGDFt1KRIzxxdEKZApfeOibJF18ZEc0' #توكنك 
+TOKEN = '7464446606:AAGMBGDFt1KRIzxxdEKZApfeOibJF18ZEc0'  # توكنك
 ADMIN_ID = 7013440973  # ايديك
-channel = '@Storagebotbr' #يوزر قناتك هنا مش الرابط
-# 🗿سنكر لا تسرق @M1telegramM1
-
-
-# 🗿سنكر لا تسرق @M1telegramM1
 bot = telebot.TeleBot(TOKEN)
 uploaded_files_dir = 'uploaded_bots'
 bot_scripts = {}
-stored_tokens = {}
+approved_users = set()  # Set to track approved users
 
 if not os.path.exists(uploaded_files_dir):
     os.makedirs(uploaded_files_dir)
-
-def check_subscription(user_id):
-    try:
-        member_status = bot.get_chat_member(channel, user_id).status
-        return member_status in ['member', 'administrator', 'creator']
-    except telebot.apihelper.ApiException as e:
-        if "Bad Request: member list is inaccessible" in str(e):
-            bot.send_message(ADMIN_ID, "⚠️ لا يمكن الوصول إلى قائمة الأعضاء في القناة. يرجى التأكد من أن البوت مشرف (Admin) في القناة.")
-        logging.error(f"Error checking subscription: {e}")
-        return False
-
-def ask_for_subscription(chat_id):
-    markup = types.InlineKeyboardMarkup()
-    join_button = types.InlineKeyboardButton('📢 اشترك في القناة', url=f'https://t.me/{channel}')
-    markup.add(join_button)
-    bot.send_message(chat_id, f"📢 عزيزي المستخدم، عليك الاشتراك في القناة {channel} لتتمكن من استخدام البوت.", reply_markup=markup)
 
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
     user_id = message.from_user.id
 
-    if not check_subscription(user_id):
-        ask_for_subscription(message.chat.id)
+    # Check if user is approved
+    if user_id not in approved_users:
+        send_approval_request(user_id, message.chat.id)
         return
 
     markup = types.InlineKeyboardMarkup()
     upload_button = types.InlineKeyboardButton('📤 رفع ملف', callback_data='upload')
-    dev_channel_button = types.InlineKeyboardButton('🔧 قناة المطور', url='@xx44g')
     speed_button = types.InlineKeyboardButton('⚡ سرعة البوت', callback_data='speed')
     markup.add(upload_button)
-    markup.add(speed_button, dev_channel_button)
+    markup.add(speed_button)
     bot.send_message(message.chat.id, f"مرحباً، {message.from_user.first_name}! 👋\n✨ يمكنك استخدام الأزرار أدناه للتحكم:", reply_markup=markup)
+
+def send_approval_request(user_id, chat_id):
+    """ Send an approval request to the admin when a new user joins. """
+    markup = types.InlineKeyboardMarkup()
+    accept_button = types.InlineKeyboardButton("✅ قبول", callback_data=f"accept_{user_id}")
+    reject_button = types.InlineKeyboardButton("❌ رفض", callback_data=f"reject_{user_id}")
+    markup.add(accept_button, reject_button)
+    bot.send_message(ADMIN_ID, f"📢 طلب جديد من المستخدم ID: {user_id}. اختر القبول أو الرفض:", reply_markup=markup)
+    bot.send_message(chat_id, "🚫 عذراً، يجب أن تحصل على إذن من المسؤول لاستخدام هذا البوت.")
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith('accept_') or call.data.startswith('reject_'))
+def handle_approval_decision(call):
+    user_id = int(call.data.split('_')[1])
+    if 'accept' in call.data:
+        approved_users.add(user_id)
+        bot.send_message(call.message.chat.id, f"✅ تم قبول المستخدم ID: {user_id}.")
+        bot.send_message(user_id, "✅ تم قبولك! يمكنك الآن استخدام البوت.")
+    elif 'reject' in call.data:
+        bot.send_message(call.message.chat.id, f"❌ تم رفض المستخدم ID: {user_id}.")
+        bot.send_message(user_id, "❌ تم رفض طلبك. لا يمكنك استخدام هذا البوت.")
 
 @bot.callback_query_handler(func=lambda call: call.data == 'speed')
 def bot_speed_info(call):
@@ -78,8 +77,8 @@ def ask_to_upload_file(call):
 def handle_file(message):
     user_id = message.from_user.id
 
-    if not check_subscription(user_id):
-        ask_for_subscription(message.chat.id)
+    if user_id not in approved_users:
+        send_approval_request(user_id, message.chat.id)
         return
 
     try:
@@ -166,7 +165,6 @@ def run_script(script_path, chat_id, folder_path, file_name, original_message):
     except Exception as e:
         bot.send_message(chat_id, f"❌ حدث خطأ أثناء تشغيل البوت: {e}")
 
-
 def extract_token_from_script(script_path):
     try:
         with open(script_path, 'r') as script_file:
@@ -205,23 +203,21 @@ def callback_query(call):
         delete_uploaded_file(chat_id)
 
 def stop_running_bot(chat_id):
-    if bot_scripts[chat_id]['process']:
+    if bot_scripts.get(chat_id) and bot_scripts[chat_id].get('process'):
         bot_scripts[chat_id]['process'].terminate()
         bot.send_message(chat_id, "🔴 تم إيقاف تشغيل البوت.")
+        bot_scripts.pop(chat_id, None)  # Remove from the dictionary after stopping
     else:
         bot.send_message(chat_id, "⚠️ لا يوجد بوت يعمل حالياً.")
 
 def delete_uploaded_file(chat_id):
-    folder_path = bot_scripts[chat_id].get('folder_path')
+    folder_path = bot_scripts.get(chat_id, {}).get('folder_path')
     if folder_path and os.path.exists(folder_path):
         shutil.rmtree(folder_path)
         bot.send_message(chat_id, f"🗑️ تم حذف الملفات المتعلقة بالبوت.")
+        bot_scripts.pop(chat_id, None)  # Remove from the dictionary after deletion
     else:
         bot.send_message(chat_id, "⚠️ الملفات غير موجودة.")
 
-
-# 🗿سنكر لا تسرق @M1telegramM1
-
-
-# سنكر لا تسرق
+# Start the bot and handle incoming messages without stopping
 bot.infinity_polling()

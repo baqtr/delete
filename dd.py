@@ -10,8 +10,8 @@ import logging
 from telebot import types
 import time
 
-TOKEN = '7464446606:AAGMBGDFt1KRIzxxdEKZApfeOibJF18ZEc0'  # توكنك
-ADMIN_ID = 7013440973  # ايديك
+TOKEN = '6343099451:AAFTtZNt4KMds4joweF-kaIk5cQp-n-Jhyw'  # توكنك
+ADMIN_ID = 6365543397  # ايديك
 bot = telebot.TeleBot(TOKEN)
 uploaded_files_dir = 'uploaded_bots'
 bot_scripts = {}
